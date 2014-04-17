@@ -39,12 +39,15 @@ class opsviewagent (
   $allowed_hosts,
   $nrpe_allowed_net,
   $nrpe_port = '5666',
+  $nrpe_local_script_path = '/usr/local/nagios/libexec/nrpe_local',
+  $nrpe_local_configs_path = '/usr/local/nagios/etc/nrpe_local',
 ){
   $hosts = join( $allowed_hosts, ',' )
 
   Yumrepo['opsview'] ~> Package['opsview-agent']
   Package['opsview-agent'] -> File['nrpe.cfg']
   Package['opsview-agent'] -> Service['opsview-agent']
+  File<||> -> Service['opsview-agent']
   File['nrpe.cfg'] ~> Service['opsview-agent']
 
   firewall { '200 open nrpe port':
@@ -77,5 +80,15 @@ class opsviewagent (
     mode    => 644,
     owner   => 'root',
     group   => 'root',
+  }
+
+  file { 'nrpe-scripts':
+    path    => $nrpe_local_script_path,
+    source  => 'puppet:///modules/opsviewagent/nrpe/',
+    recurse => true,
+    purge   => true,
+    mode    => 550,
+    owner   => 'nagios',
+    group   => 'nagios',
   }
 }
