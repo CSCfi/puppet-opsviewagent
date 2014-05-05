@@ -1,4 +1,4 @@
-#!/bin/bash
+update image_locations set value="file:///media/glance/images/#!/bin/bash" where image_id="#!/bin/bash";
 ####
 #The MIT License (MIT)
 #
@@ -69,7 +69,7 @@ export OS_PASSWORD=$OS_PASSWORD
 
 # Some optional settings:
 DEBUG="0" # Set to something larger than 0 for extra output.
-WAITINT="0" # WAITING x 2 = How long to wait after launching an instance before trying to ping.
+WAITINT="5" # WAITING x 2 = How long to wait after launching an instance before trying to ping.
 PINGATTEMPTS=10 # How many times to ping before stopping.
 
 ##### End of Configuration
@@ -99,7 +99,7 @@ safety() {
 # Check if there already is a VM called $VM and if so delete it.
 if [ "$($NOVA list|grep $VM|wc -l 2>&1)" -gt 0 ]; then
 	UPDATETIME="$($NOVA show $VM|grep updated|awk '{print $4}'|sed -e 's/T/ /'| sed -e 's/Z//')"
-	UPDATETIMEINEPOCH="$(date -d "$GETUPDATETIME" +%s)"
+	UPDATETIMEINEPOCH="$(date -d "$UPDATETIME" +%s)"
 	CURRENTTIMEINEPOCH="$(date +%s)"
 	CURRM15=$(( $CURRENTTIMEINEPOCH-10 ))
 	if [ $CURRM15 -lt $UPDATETIMEINEPOCH ]; then
@@ -157,7 +157,7 @@ while [ $COULDPING -lt 1 ]; do
 
 	if [ "$(ping -W 1 -q -c1 $THEIP 2>&1 >/dev/null; echo $?)" != "0" ]; then
 		if [ "$DEBUG" != 0 ]; then 
-			echo "Could not ping VM $VM with IP $GETIP from `hostname`"
+			echo "Could not ping VM $VM with IP $THEIP from `hostname`"
 		fi
 	
 		let COUNTER=COUNTER+1
