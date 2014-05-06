@@ -1,4 +1,4 @@
-update image_locations set value="file:///media/glance/images/#!/bin/bash" where image_id="#!/bin/bash";
+#!/bin/bash
 ####
 #The MIT License (MIT)
 #
