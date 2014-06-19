@@ -23,8 +23,8 @@ define opsviewagent::nrpe_command(
       mode    => 600,
     } 
 
-  sudo::conf { '$name':
-      content  => "nagios ALL=(ALL) NOPASSWD: ${opsviewagent::nrpe_local_script_path}/${script_name}",
+  sudo::conf { $name:
+      content  => "Defaults !requiretty\nnagios ALL=(ALL) NOPASSWD: ${opsviewagent::nrpe_local_script_path}/${script_name}\n",
     }
   }
 }
