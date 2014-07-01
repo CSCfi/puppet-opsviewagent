@@ -69,8 +69,8 @@ export OS_PASSWORD=$OS_PASSWORD
 
 # Some optional settings:
 DEBUG="0" # Set to something larger than 0 for extra output.
-WAITINT="5" # WAITING x 2 = How long to wait after launching an instance before trying to ping.
-PINGATTEMPTS=10 # How many times to ping before stopping.
+WAITINT="10" # WAITING x 2 = How long to wait after launching an instance before trying to ping.
+PINGATTEMPTS=20 # How many times to ping before stopping.
 
 ##### End of Configuration
 
@@ -170,7 +170,7 @@ while [ $COULDPING -lt 1 ]; do
 			CRIT_CNT=CRIT_CNT+1
 			COULDPING=1 # exit the loop
 		fi
-		sleep 1
+		sleep 4
 	else
 		if [ "$DEBUG" != 0 ]; then
 			echo "Could ping $THEIP ~$COUNTER seconds after allocating."
