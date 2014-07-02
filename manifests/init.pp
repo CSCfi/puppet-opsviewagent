@@ -41,6 +41,7 @@ class opsviewagent (
   $nrpe_port = '5666',
   $nrpe_local_script_path = '/usr/local/nagios/libexec/nrpe_local',
   $nrpe_local_configs_path = '/usr/local/nagios/etc/nrpe_local',
+  $command_timeout = 50,
 ){
   $hosts = join( $allowed_hosts, ',' )
 

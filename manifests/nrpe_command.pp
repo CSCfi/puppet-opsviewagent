@@ -5,7 +5,7 @@ define opsviewagent::nrpe_command(
 ) {
   File[$name] ~> Service['opsview-agent']
 
-  if $sudo == false {
+  if $use_sudo == false {
     file { $name:
       path    => "${opsviewagent::nrpe_local_configs_path}/${name}.cfg",
       content => "command[${name}]=${opsviewagent::nrpe_local_script_path}/${script_name} ${script_arguments}\n",
@@ -23,7 +23,7 @@ define opsviewagent::nrpe_command(
       mode    => 600,
     } 
 
-  sudo::conf { $name:
+    sudo::conf { $name:
       content  => "Defaults !requiretty\nnagios ALL=(ALL) NOPASSWD: ${opsviewagent::nrpe_local_script_path}/${script_name}\n",
     }
   }
