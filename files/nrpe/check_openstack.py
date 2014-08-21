@@ -25,7 +25,8 @@ DEFAULT_INSTANCE_FIPPOOL = 'public'
 DEFAULT_VOLUME_NAME      = 'NagiosVolumeCheck'
 DEFAULT_VOLUME_SIZE      = 1
 DEFAULT_MAX_WAIT_TIME    = 90
-DEFAULT_PING_COUNT       = 5
+DEFAULT_PING_COUNT       = 3
+DEFAULT_PING_INTERVAL    = 1
 
 STATUS_VOLUME_AVAILABLE  = 'available'
 STATUS_INSTANCE_ACTIVE   = 'ACTIVE'
@@ -182,7 +183,8 @@ class OSInstanceCheck(nova.Client):
 				
 		def floating_ip_ping(self):
 				count = self.options.ping_count
-				status = os.system('ping -c {0} {1} &>/dev/null'.format(count, self.fip.ip))
+				interval = self.options.ping_interval
+				status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
 				if status != 0:
 						raise InstanceNotPingableException(status)
 				
@@ -229,6 +231,7 @@ def parse_command_line():
 		parser.add_option("-n", "--network_name", dest='network_name', help='network name')
 		parser.add_option("-l", "--floating_ip_pool", dest='fip_pool', help='floating ip pool name')
 		parser.add_option("-c", "--ping_count", dest='ping_count', help='number of ping packets')
+		parser.add_option("-I", "--ping_interval", dest='ping_interval', help='seconds interval between ping packets')
 		
 		parser.add_option("-v", "--volume_name", dest='volume_name', help='test volume name')
 		parser.add_option("-s", "--volume_size", dest='volume_size', help='test volume size')
@@ -252,6 +255,8 @@ def parse_command_line():
 				options.fip_pool = DEFAULT_INSTANCE_FIPPOOL
 		if not options.ping_count:
 				options.ping_count = DEFAULT_PING_COUNT
+		if not options.ping_interval:
+				options.ping_interval = DEFAULT_PING_INTERVAL
 		if not options.wait:
 				options.wait = DEFAULT_MAX_WAIT_TIME
 
