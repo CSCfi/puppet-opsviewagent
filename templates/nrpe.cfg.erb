@@ -150,7 +150,7 @@ command[check_ide_smart]=/usr/local/nagios/libexec/check_ide_smart $ARG1$
 command[check_postgres]=/usr/local/nagios/libexec/check_postgres $ARG1$
 command[check_raid]=/usr/local/nagios/libexec/check_raid $ARG1$
 command[check_time_skew]=/usr/local/nagios/libexec/check_time_skew $ARG1$
-command[check_cpu]=$nrpe_local_script_path/check_cpu $ARG1$
+command[check_cpu]=<%= @nrpe_local_script_path %>/check_cpu $ARG1$
 
 # INCLUDE CONFIG DIRECTORY
 # This directive allows you to include definitions from config files (with a
