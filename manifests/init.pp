@@ -71,6 +71,14 @@ class opsviewagent (
     ensure  => installed,
   }
 
+  package { 'awk':
+    ensure  => installed,
+  }
+
+  package { 'bc':
+    ensure  => installed,
+  }
+
   service { 'opsview-agent':
     ensure  => running,
     enable  => true,
