@@ -71,7 +71,7 @@ class opsviewagent (
     ensure  => installed,
   }
 
-  package { 'awk':
+  package { 'gawk':
     ensure  => installed,
   }
 
