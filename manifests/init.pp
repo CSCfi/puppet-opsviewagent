@@ -42,6 +42,7 @@ class opsviewagent (
   $nrpe_local_script_path = '/usr/local/nagios/libexec/nrpe_local',
   $nrpe_local_configs_path = '/usr/local/nagios/etc/nrpe_local',
   $command_timeout = 50,
+  $manage_firewall = true,
 ){
   $hosts = join( $allowed_hosts, ',' )
 
@@ -52,12 +53,14 @@ class opsviewagent (
   File<||> -> Service['opsview-agent']
   File['nrpe.cfg'] ~> Service['opsview-agent']
 
-  firewall { '200 open nrpe port':
-    port    => $nrpe_port,
-    proto   => 'tcp',
-    state   => 'NEW',
-    action  => 'accept',
-    source  => $nrpe_allowed_net,
+  if $manage_firewall {
+    firewall { '200 open nrpe port':
+      port    => $nrpe_port,
+      proto   => 'tcp',
+      state   => 'NEW',
+      action  => 'accept',
+      source  => $nrpe_allowed_net,
+    }
   }
 
   yumrepo { 'opsview':
