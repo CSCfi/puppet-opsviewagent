@@ -50,7 +50,7 @@ class opsviewagent (
   Package['opsview-agent'] -> File['nrpe.cfg']
   Package['opsview-agent'] -> File['nrpe-scripts']
   Package['opsview-agent'] -> Service['opsview-agent']
-  File<||> -> Service['opsview-agent']
+  File['nrpe-scripts'] -> Service['opsview-agent']
   File['nrpe.cfg'] ~> Service['opsview-agent']
 
   if $manage_firewall {
