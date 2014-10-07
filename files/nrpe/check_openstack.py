@@ -136,6 +136,11 @@ class OSVolumeCheck(cinder.Client):
 				return
 		raise VolumeNotAvailableException(status)
 
+	def delete_orphaned_volumes(self):
+		search = dict(name = self.options.volume_name)
+		for volume in self.volumes.list(search_opts=search):
+			volume.delete()
+
 	def execute(self):
 		try:
 			self.volume_create()
