@@ -29,6 +29,7 @@ DEFAULT_PING_COUNT       = 3
 DEFAULT_PING_INTERVAL    = 1
 
 STATUS_VOLUME_AVAILABLE  = 'available'
+STATUS_VOLUME_DELETING   = 'deleting'
 STATUS_INSTANCE_ACTIVE   = 'ACTIVE'
 
 class CredentialsMissingException(Exception):
@@ -137,12 +138,14 @@ class OSVolumeCheck(cinder.Client):
 		raise VolumeNotAvailableException(status)
 
 	def delete_orphaned_volumes(self):
-		search = dict(name = self.options.volume_name)
+		search = dict(display_name = self.options.volume_name)
 		for volume in self.volumes.list(search_opts=search):
-			volume.delete()
+			if volume._info['status'] != STATUS_VOLUME_DELETING:
+				volume.delete()
 
 	def execute(self):
 		try:
+			self.delete_orphaned_volumes()
 			self.volume_create()
 			self.wait_volume_is_available()
 		except:
