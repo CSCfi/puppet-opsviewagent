@@ -298,6 +298,9 @@ def main():
 	'''
 	Return Nagios status code
 	'''
+	
+	time_start = time.time()
+	
 	try:
 		(options, args) = parse_command_line()
 		execute_check(options, args)
@@ -317,6 +320,10 @@ def main():
 		print e
 		sys.exit(NAGIOS_STATE_CRITICAL)
 	
+	time_end = time.time() - time_start
+	
+	print '----'
+	print 'OK | seconds used = {0}'.format(int(time_end))
 	sys.exit(NAGIOS_STATE_OK)
 
 if __name__ == '__main__':
