@@ -323,7 +323,7 @@ def main():
 	time_end = time.time() - time_start
 	
 	print '----'
-	print 'OK | seconds used = {0}'.format(int(time_end))
+	print 'OK | seconds used={0}'.format(int(time_end))
 	sys.exit(NAGIOS_STATE_OK)
 
 if __name__ == '__main__':
