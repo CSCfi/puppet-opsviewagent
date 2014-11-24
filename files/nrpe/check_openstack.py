@@ -317,7 +317,7 @@ def main():
 		print e
 		sys.exit(NAGIOS_STATE_WARNING)
 	except Exception, e:
-		print e
+		print "{0}: {1}".format(e.__class__.__name__, e)
 		sys.exit(NAGIOS_STATE_CRITICAL)
 	
 	time_end = time.time() - time_start
