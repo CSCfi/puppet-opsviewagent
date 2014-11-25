@@ -29,7 +29,7 @@ DEFAULT_PING_COUNT       = 5
 DEFAULT_PING_INTERVAL    = 2
 
 STATUS_VOLUME_AVAILABLE  = 'available'
-STATUS_VOLUME_OK_DELETE  = ['deleting', 'error']
+STATUS_VOLUME_OK_DELETE  = ['available', 'error']
 STATUS_INSTANCE_ACTIVE   = 'ACTIVE'
 
 class CheckOpenStackException(Exception):
