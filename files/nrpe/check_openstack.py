@@ -32,41 +32,26 @@ STATUS_VOLUME_AVAILABLE  = 'available'
 STATUS_VOLUME_OK_DELETE  = ['deleting', 'error']
 STATUS_INSTANCE_ACTIVE   = 'ACTIVE'
 
-class CredentialsMissingException(Exception):
-	'''
-	OpenStack credentials missing exception
-	'''
-	def __init__(self, value):
-		self.value = '{0} parameter or environment variable missing!'.format(value.upper())
-	def __str__(self):
-		return repr(self.value)
+class CheckOpenStackException(Exception):
+	''' Base Exception '''
+	msg_fmt = "An unknown exception occurred."
 
-class VolumeNotAvailableException(Exception):
-	'''
-	OpenStack volume not available after creation
-	'''
-	def __init__(self, value):
-		self.value = 'Volume is not available after creation! Status: {0}'.format(value)
+	def __init__(self, **kwargs):
+		self.message = self.msg_fmt % kwargs
 	def __str__(self):
-		return repr(self.value)
+		return self.message
 
-class InstanceNotAvailableException(Exception):
-	'''
-	OpenStack instance not available after creation
-	'''
-	def __init__(self, value):
-		self.value = 'Instance is not available after creation! Status: {0}'.format(value)
-	def __str__(self):
-		return repr(self.value)
+class CredentialsMissingException(CheckOpenStackException):
+	msg_fmt = "%(key)s parameter or environment variable missing!"
 
-class InstanceNotPingableException(Exception):
-	'''
-	OpenStack instance not pingable
-	'''
-	def __init__(self, value):
-		self.value = 'Instance is not pingable! Status: {0}'.format(value)
-	def __str__(self):
-		return repr(self.value)
+class VolumeNotAvailableException(CheckOpenStackException):
+	msg_fmt = "Volume is not available after creation! Status: %(status)d"
+
+class InstanceNotAvailableException(CheckOpenStackException):
+	msg_fmt = "Instance is not available after creation! Status: %{status}d"
+
+class InstanceNotPingableException(CheckOpenStackException):
+	msg_fmt = "Instance is not pingable! Status: %{status}d"
 
 class OSCredentials(object):
 	'''
@@ -98,7 +83,7 @@ class OSCredentials(object):
 	def credentials_available(self):
 		for key in ['auth_url', 'username', 'api_key', 'project_id']:
 			if not key in self.cred:
-				raise CredentialsMissingException(key)
+				raise CredentialsMissingException(key=key)
 	
 	def provide(self):
 		return self.cred
@@ -135,7 +120,7 @@ class OSVolumeCheck(cinder.Client):
 			status = self.volume_status()
 			if status == STATUS_VOLUME_AVAILABLE:
 				return
-		raise VolumeNotAvailableException(status)
+		raise VolumeNotAvailableException(status=status)
 
 	def delete_orphaned_volumes(self):
 		search = dict(display_name = self.options.volume_name)
@@ -194,7 +179,7 @@ class OSInstanceCheck(nova.Client):
 		interval = self.options.ping_interval
 		status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
 		if status != 0:
-			raise InstanceNotPingableException(status)
+			raise InstanceNotPingableException(status=status)
 		
 	def wait_instance_is_available(self):
 		inc = 0
@@ -204,7 +189,7 @@ class OSInstanceCheck(nova.Client):
 			status = self.instance_status()
 			if status == STATUS_INSTANCE_ACTIVE:
 				return
-		raise InstanceNotAvailableException(status)
+		raise InstanceNotAvailableException(status=status)
 	
 	def delete_orphaned_instances(self):
 		search = dict(name = self.options.instance_name)
