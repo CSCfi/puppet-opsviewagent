@@ -48,10 +48,10 @@ class VolumeNotAvailableException(CheckOpenStackException):
 	msg_fmt = "Volume is not available after creation! Status: %(status)d"
 
 class InstanceNotAvailableException(CheckOpenStackException):
-	msg_fmt = "Instance is not available after creation! Status: %{status}d"
+	msg_fmt = "Instance is not available after creation! Status: %(status)d"
 
 class InstanceNotPingableException(CheckOpenStackException):
-	msg_fmt = "Instance is not pingable! Status: %{status}d"
+	msg_fmt = "Instance is not pingable! Status: %(status)d"
 
 class OSCredentials(object):
 	'''
