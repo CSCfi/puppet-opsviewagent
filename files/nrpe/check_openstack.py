@@ -210,6 +210,7 @@ class OSInstanceCheck(nova.Client):
 		except:
 			raise
 		finally:
+			self.instance_detach_floating_ip()
 			self.instance_destroy()
 
 
