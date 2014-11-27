@@ -171,8 +171,9 @@ class OSInstanceCheck(nova.Client):
 		self.instance.add_floating_ip(self.fip)
 		
 	def instance_detach_floating_ip(self):
-		self.instance.remove_floating_ip(self.fip.ip)
-		self.floating_ips.delete(self.fip)
+		if hasattr(self, 'fip'):
+			self.instance.remove_floating_ip(self.fip.ip)
+			self.floating_ips.delete(self.fip)
 		
 	def floating_ip_ping(self):
 		count = self.options.ping_count
@@ -204,9 +205,6 @@ class OSInstanceCheck(nova.Client):
 			self.instance_attach_floating_ip()
 			self.floating_ip_ping()
 			self.instance_detach_floating_ip()
-		except InstanceNotPingableException, e:
-			self.instance_detach_floating_ip()
-			raise
 		except:
 			raise
 		finally:
