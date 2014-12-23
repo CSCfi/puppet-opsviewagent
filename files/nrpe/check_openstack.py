@@ -16,8 +16,6 @@ import paramiko
 import socket
 import logging
 
-import bpdb
-
 NAGIOS_STATE_OK       = 0
 NAGIOS_STATE_WARNING  = 1
 NAGIOS_STATE_CRITICAL = 2
