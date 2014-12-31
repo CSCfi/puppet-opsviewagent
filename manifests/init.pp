@@ -39,10 +39,6 @@ class opsviewagent (
   $allowed_hosts,
   $nrpe_allowed_net,
   $nrpe_port = '5666',
-  $nrpe_user = 'nagios',
-  $nrpe_group = 'nagios',
-  $nrpe_uid,
-  $nrpe_gid,
   $nrpe_local_script_path = '/usr/local/nagios/libexec/nrpe_local',
   $nrpe_local_configs_path = '/usr/local/nagios/etc/nrpe_local',
   $command_timeout = 50,
@@ -64,20 +60,6 @@ class opsviewagent (
       state   => 'NEW',
       action  => 'accept',
       source  => $nrpe_allowed_net,
-    }
-  }
-
-  # Add a nrpe user before adding opsview if you need to configure uid and gid
-  if $nrpe_uid or $nrpe_gid {
-    user { $nrpe_user:
-      ensure     => present,
-      system     => true,
-      groups     => $nrpe_group,
-      home       => '/var/log/nagios'
-      managehome => false,
-      uid        => $nrpe_uid,
-      gid        => $nrpe_gid,
-      before     => Package['opsview-agent'],
     }
   }
 
@@ -106,7 +88,7 @@ class opsviewagent (
   }
 
   file { 'nrpe.cfg':
-    path    => '/usr/local/nagios/etc/nrpe.cfg',
+    path    => '/usr/local/nagios/etc/nrpe.cfg', 
     content => template("opsviewagent/nrpe.cfg.erb"),
     mode    => 644,
     owner   => 'root',
@@ -119,7 +101,7 @@ class opsviewagent (
     recurse => true,
     purge   => true,
     mode    => 550,
-    owner   => $nrpe_user,
-    group   => $nrpe_user,
+    owner   => 'nagios',
+    group   => 'nagios',
   }
 }
