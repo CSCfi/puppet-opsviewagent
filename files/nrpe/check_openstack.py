@@ -305,7 +305,12 @@ class OSGhostInstanceCheck(nova.Client):
     hosts = self.get_nova_host_list()
 
     ssh = paramiko.SSHClient()
+
+    # Load the users host keys so we can log in without password
     ssh.load_system_host_keys()
+
+    # Automatically add host keys for new hosts
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     instances = []
 
