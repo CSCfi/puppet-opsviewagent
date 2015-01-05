@@ -64,7 +64,7 @@ class HostNotAvailableException(CheckOpenStackException):
   msg_fmt = "Unable to ssh to %(host)s"
 
 class HostsEnabledAndDownException(CheckOpenStackException):
-  msg_fmt = "Nova hosts enabled and down: %(msgs)"
+  msg_fmt = "Nova hosts enabled and down: %(msgs)s"
 
 class LostInstancesException(CheckOpenStackException):
   msg_fmt = "Instances missing from nodes %(virshGhosts)s \n" + \
@@ -300,7 +300,7 @@ class OSGhostInstanceCheck(nova.Client):
     
     # --all shows all vms not just the running ones
     # --name omits the table headers just prints a list of vm names
-    virshList = 'virsh list --all --name'
+    virshList = 'sudo virsh list --all --name'
 
     hosts = self.get_nova_host_list()
 
@@ -324,7 +324,7 @@ class OSGhostInstanceCheck(nova.Client):
           instance = line.strip()
           # Last line is always empty
           if len(instance) > 0:
-            instances.append([host, line.strip()])
+            instances.append([line.strip(), host])
       except socket.gaierror as e:
         logging.warn('unable to connect to {0}'.format(host))
         logging.warn('{0}: {1}'.format(e.__class__.__name__, e))
@@ -413,7 +413,7 @@ def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
-  usage = '%prog { instance | volume }'
+  usage = '%prog { instance | volume | ghostinstance | ghostvolume | ghostnodes }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
@@ -507,9 +507,15 @@ def main():
   except InstanceNotPingableException, e:
     print e
     sys.exit(NAGIOS_STATE_WARNING)
+  except LostInstancesException as e:
+    print e
+    sys.exit(NAGIOS_STATE_WARNING)
+  except HostsEnabledAndDownException as e:
+    print e
+    sys.exit(NAGIOS_STATE_WARNING)
   #except Exception as e:
-    #print "{0}: {1}".format(e.__class__.__name__, e)
-    #sys.exit(NAGIOS_STATE_CRITICAL)
+  #  print "{0}: {1}".format(e.__class__.__name__, e)
+  #  sys.exit(NAGIOS_STATE_CRITICAL)
   except HostNotAvailableException as e:
     print e
     
