@@ -533,7 +533,7 @@ def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
-  usage = '%prog { instance | volume | ghostinstance | ghostvolume | ghostvolumebasic | ghostnodes }'
+  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
@@ -591,8 +591,8 @@ def execute_check(options, args):
     'volume'  : OSVolumeCheck,
     'instance': OSInstanceCheck,
     'ghostinstance': OSGhostInstanceCheck,
-    'ghostvolume': OSGhostVolumeCheck,
-    'ghostvolumebasic': OSVolumeErrorCheck,
+    'ghostvolumessh': OSGhostVolumeCheck,
+    'ghostvolume': OSVolumeErrorCheck,
     'ghostnodes': OSGhostNodeCheck
   }
 
