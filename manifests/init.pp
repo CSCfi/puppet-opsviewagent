@@ -50,6 +50,7 @@ class opsviewagent (
   Package['opsview-agent'] -> File['nrpe.cfg']
   Package['opsview-agent'] -> File['nrpe-scripts']
   Package['opsview-agent'] -> Service['opsview-agent']
+  Package['opsview-agent'] -> Opsviewagent::Nrpe_command<||>
   File['nrpe-scripts'] -> Service['opsview-agent']
   File['nrpe.cfg'] ~> Service['opsview-agent']
 
