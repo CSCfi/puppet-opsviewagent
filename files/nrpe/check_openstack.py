@@ -74,6 +74,9 @@ class LostVolumesException(CheckOpenStackException):
   msg_fmt = "Volumes missing from storage %(lvmGhosts)s \n" + \
             "Volumes missing from cinder  %(cinderGhosts)s \n"
 
+class VolumeErrorException(CheckOpenStackException):
+  msg_fmt = "Volumes in error state %(msgs)s"
+
 class OSCredentials(object):
   '''
   Read authentication credentials from environment or optionParser
@@ -370,9 +373,95 @@ class OSGhostVolumeCheck(cinder.Client):
     super(OSGhostVolumeCheck, self).__init__(**creds)
     self.authenticate()
 
+  def get_cinder_volume_list(self):
+    search_opts = {'all_tenants': '1'}
+    vols = self.volumes.list(search_opts=search_opts)
+    cinderVolumes = []
+    for vol in vols:
+      # Some hosts look like: cloud-storagegw1@ddn1
+      # We only need the hostname
+      host = getattr(vol,'os-vol-host-attr:host').split('@')[0]
+      cinderVolumes.append( [ vol.id.strip(), host ] )
+    logging.debug(cinderVolumes)
+    return cinderVolumes
+
+  def get_cinder_volume_hosts(self):
+    allHosts = self.services.list(binary='cinder-volume')
+    hosts = []
+    for host in allHosts:
+      if host.status == 'enabled':
+        # Some hosts look like: cloud-storagegw1@ddn1
+        # We only need the hostname
+        hosts.append(host.host.split('@')[0])
+
+    logging.debug(hosts)
+    return hosts
+
+  def get_lvm_volume_list(self):
+    '''
+    ssh to all the cinder nodes and get a list of logical volumes
+    '''
+
+    ''' --option name - Print only the name of the logical volume
+        --noheadings  - Omits the heading row '''
+    lvsCommand = 'sudo lvs --option name --noheadings'
+
+    hosts = self.get_cinder_volume_hosts()
+
+    ssh = paramiko.SSHClient()
+
+    # Load the users host keys so we can log in without password
+    ssh.load_system_host_keys()
+
+    # Automatically add host keys for new hosts
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    volumes = []
+
+    # List the volumes on every host
+    for host in hosts:
+      try:
+        logging.info('ssh to: ' + host)
+        ssh.connect(host)
+        stdin, stdout, stderr = ssh.exec_command(lvsCommand)
+        for line in stdout.readlines():
+          '''
+          Example line:
+          "  volume-baba72ac-7377-4f37-8923-a1f983bad28e"
+          '''
+          volumeId = line.split('-',1)[1]
+          volumes.append([ volumeId, host ])
+      except socket.gaierror as e:
+        logging.warn('unable to connect to {0}'.format(host))
+        logging.warn('{0}: {1}'.format(e.__class__.__name__, e))
+        raise HostNotAvailableException(host=host)
+
+    logging.debug(volumes)
+    return volumes
+
+  def compare_cinder_lvm_instance_lists(self):
+    cinderVolumes = self.get_cinder_volume_list()
+    lvmVolumes    = self.get_lvm_volume_list()
+
+    cinderGhosts = []
+    for cinderVolume in cinderVolumes:
+      if not cinderVolume in lvmVolumes:
+        logging.info(cinderVolume[0] + ' not found in lvs')
+        cinderGhosts.append(cinderVolume)
+
+    lvmGhosts = []
+    for lvmVolume in lvmVolumes:
+      if not lvmVolume in cinderVolumes:
+        logging.info(lvmVolume[0] + ' not found from cinder')
+        novaGhosts.append(virshInstance)
+    
+    if cinderGhosts or lvmGhosts:
+      raise LostVolumesException(cinderGhosts=cinderGhosts,
+                                 lvmGhosts=lvmGhosts)
+
   def execute(self):
     try:
-      self.check_bad_hosts()
+      self.compare_cinder_lvm_instance_lists()
     except:
       raise
 
@@ -409,11 +498,42 @@ class OSGhostNodeCheck(nova.Client):
     except:
       raise
 
+class OSVolumeErrorCheck(cinder.Client):
+  ''' Ghosthunting for volumes in "error " state. '''
+
+  options = dict()
+
+  def __init__(self, options):
+    self.options = options
+    creds = OSCredentials(options).provide()
+    super(OSVolumeErrorCheck, self).__init__(**creds)
+    self.authenticate()
+
+  def check_volume_errors(self):
+
+    search_opts = { 'all_tenants': '1',
+                    'status': 'error',
+                    'status': 'error_deleting' }
+    volumes = self.volumes.list(search_opts=search_opts)
+    if volumes:
+      msgs = []
+      for volume in volumes:
+        host = getattr(volume,'os-vol-host-attr:host')
+        msgs.append(' ' + volume.id + ' on ' + host)
+      raise VolumeErrorException(msgs=msgs)
+
+  def execute(self):
+    try:
+      self.check_volume_errors()
+    except:
+      raise
+
+
 def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
-  usage = '%prog { instance | volume | ghostinstance | ghostvolume | ghostnodes }'
+  usage = '%prog { instance | volume | ghostinstance | ghostvolume | ghostvolumebasic | ghostnodes }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
@@ -472,6 +592,7 @@ def execute_check(options, args):
     'instance': OSInstanceCheck,
     'ghostinstance': OSGhostInstanceCheck,
     'ghostvolume': OSGhostVolumeCheck,
+    'ghostvolumebasic': OSVolumeErrorCheck,
     'ghostnodes': OSGhostNodeCheck
   }
 
@@ -492,7 +613,7 @@ def main():
   try:
     (options, args) = parse_command_line()
     if options.debug:
-      logging.basicConfig(level=logging.INFO)
+      logging.basicConfig(level=logging.DEBUG)
 
     execute_check(options, args)
   except cinderclient.exceptions.BadRequest, e:
@@ -513,11 +634,11 @@ def main():
   except HostsEnabledAndDownException as e:
     print e
     sys.exit(NAGIOS_STATE_WARNING)
-  #except Exception as e:
-  #  print "{0}: {1}".format(e.__class__.__name__, e)
-  #  sys.exit(NAGIOS_STATE_CRITICAL)
   except HostNotAvailableException as e:
     print e
+  except Exception as e:
+    print "{0}: {1}".format(e.__class__.__name__, e)
+    sys.exit(NAGIOS_STATE_CRITICAL)
     
   time_end = time.time() - time_start
 
