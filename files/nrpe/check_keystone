@@ -27,9 +27,6 @@ import re
 from keystoneclient.v2_0 import client
 from keystoneclient import exceptions
 
-# bpython
-import bpdb
-
 STATE_OK = 0
 STATE_WARNING = 1
 STATE_CRITICAL = 2
