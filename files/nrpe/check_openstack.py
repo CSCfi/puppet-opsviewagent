@@ -273,14 +273,15 @@ class OSGhostInstanceCheck(nova.Client):
     instances = []
 
     for server in servers:
-      hostname = getattr(server,'OS-EXT-SRV-ATTR:host')
-      instance = getattr(server,'OS-EXT-SRV-ATTR:instance_name')
-      # Sometimes the OS-EXT-SRV-ATTR:host is None, so we clean the data first
-      # this might be a problem in it's own right - Peter Jenkins
-      if hostname != None:
-        instances.append([instance, hostname])
-      else:
-        logging.warn(server.id + ' has no host atribute')
+      if server.status != 'ERROR':
+        hostname = getattr(server,'OS-EXT-SRV-ATTR:host')
+        instance = getattr(server,'OS-EXT-SRV-ATTR:instance_name')
+        # Sometimes the OS-EXT-SRV-ATTR:host is None, so we clean the data first
+        # this might be a problem in it's own right - Peter Jenkins
+        if hostname != None:
+          instances.append([instance, hostname])
+        else:
+          logging.warn(server.id + ' has no host atribute')
 
     return instances
 
