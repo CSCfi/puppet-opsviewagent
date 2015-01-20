@@ -56,23 +56,32 @@ class opsviewagent (
 
   if $manage_firewall {
     firewall { '200 open nrpe port':
-      port    => $nrpe_port,
-      proto   => 'tcp',
-      state   => 'NEW',
-      action  => 'accept',
-      source  => $nrpe_allowed_net,
+      port   => $nrpe_port,
+      proto  => 'tcp',
+      state  => 'NEW',
+      action => 'accept',
+      source => $nrpe_allowed_net,
     }
   }
 
+  user { 'nagios':
+    ensure     => present,
+    name       => 'nagios',
+    home       => '/var/log/nagios',
+    managehome => true,
+    comment    => 'Monitoring user',
+  }
+
   yumrepo { 'opsview':
-    baseurl   => 'http://downloads.opsview.com/opsview-core/latest/yum/centos/6Server/$basearch',
-    enabled   => '1',
-    protect   => '0',
-    gpgcheck  => '0',
+    baseurl  => 'http://downloads.opsview.com/opsview-core/latest/yum/centos/6Server/$basearch',
+    enabled  => '1',
+    protect  => '0',
+    gpgcheck => '0',
   }
 
   package { 'opsview-agent':
     ensure  => installed,
+    require => User['nagios'],
   }
 
   package { 'gawk':
@@ -84,14 +93,14 @@ class opsviewagent (
   }
 
   service { 'opsview-agent':
-    ensure  => running,
-    enable  => true,
+    ensure => running,
+    enable => true,
   }
 
   file { 'nrpe.cfg':
-    path    => '/usr/local/nagios/etc/nrpe.cfg', 
-    content => template("opsviewagent/nrpe.cfg.erb"),
-    mode    => 644,
+    path    => '/usr/local/nagios/etc/nrpe.cfg',
+    content => template('opsviewagent/nrpe.cfg.erb'),
+    mode    => '0644',
     owner   => 'root',
     group   => 'root',
   }
@@ -101,8 +110,9 @@ class opsviewagent (
     source  => 'puppet:///modules/opsviewagent/nrpe/',
     recurse => true,
     purge   => true,
-    mode    => 550,
+    mode    => '0550',
     owner   => 'nagios',
     group   => 'nagios',
   }
+
 }
