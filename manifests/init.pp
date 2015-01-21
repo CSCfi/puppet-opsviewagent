@@ -43,6 +43,7 @@ class opsviewagent (
   $nrpe_local_configs_path = '/usr/local/nagios/etc/nrpe_local',
   $command_timeout = 50,
   $manage_firewall = true,
+  $nagios_public_ssh_key = undef,
 ){
   $hosts = join( $allowed_hosts, ',' )
 
@@ -70,6 +71,7 @@ class opsviewagent (
     home       => '/var/log/nagios',
     managehome => true,
     comment    => 'Monitoring user',
+    key        => $nagios_public_ssh_key,
   }
 
   yumrepo { 'opsview':
