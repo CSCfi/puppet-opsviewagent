@@ -68,7 +68,7 @@ class opsviewagent (
 
   user { $nagios_user:
     ensure     => present,
-    name       => $nagios_user
+    name       => $nagios_user,
     home       => "/var/log/${nagios_user}",
     managehome => true,
     comment    => 'Monitoring user',
