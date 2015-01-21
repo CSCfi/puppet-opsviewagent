@@ -69,13 +69,13 @@ class opsviewagent (
   user { $nagios_user:
     ensure     => present,
     name       => $nagios_user
-    home       => '/var/log/$nagios_user',
+    home       => "/var/log/${nagios_user}",
     managehome => true,
     comment    => 'Monitoring user',
   }
 
   if $nagios_public_ssh_key {
-    ssh_authorized_key { '$nagios_user@taito-service01.csc.fi':
+    ssh_authorized_key { "${nagios_user}@taito-service01.csc.fi":
       user => $nagios_user,
       type => 'ssh-rsa',
       key  => $nagios_public_ssh_key,
