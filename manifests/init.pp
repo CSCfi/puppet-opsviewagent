@@ -43,6 +43,7 @@ class opsviewagent (
   $nrpe_local_configs_path = '/usr/local/nagios/etc/nrpe_local',
   $command_timeout = 50,
   $manage_firewall = true,
+  $nagios_user = 'nagios',
   $nagios_public_ssh_key = undef,
 ){
   $hosts = join( $allowed_hosts, ',' )
@@ -65,13 +66,20 @@ class opsviewagent (
     }
   }
 
-  user { 'nagios':
+  user { $nagios_user:
     ensure     => present,
-    name       => 'nagios',
-    home       => '/var/log/nagios',
+    name       => $nagios_user
+    home       => '/var/log/$nagios_user',
     managehome => true,
     comment    => 'Monitoring user',
-    key        => $nagios_public_ssh_key,
+  }
+
+  if $nagios_public_ssh_key {
+    ssh_authorized_key { '$nagios_user@taito-service01.csc.fi':
+      user => $nagios_user,
+      type => 'ssh-rsa',
+      key  => $nagios_public_ssh_key,
+    }
   }
 
   yumrepo { 'opsview':
