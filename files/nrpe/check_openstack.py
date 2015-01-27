@@ -637,6 +637,10 @@ def main():
     sys.exit(NAGIOS_STATE_WARNING)
   except HostNotAvailableException as e:
     print e
+    sys.exit(NAGIOS_STATE_WARNING)
+  except VolumeErrorException as e:
+    print e
+    sys.exit(NAGIOS_STATE_WARNING)
   except Exception as e:
     print "{0}: {1}".format(e.__class__.__name__, e)
     sys.exit(NAGIOS_STATE_CRITICAL)
