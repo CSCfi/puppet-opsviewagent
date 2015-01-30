@@ -49,13 +49,13 @@ class CredentialsMissingException(CheckOpenStackException):
   msg_fmt = "%(key)s parameter or environment variable missing!"
 
 class VolumeNotAvailableException(CheckOpenStackException):
-  msg_fmt = "Volume is not available after creation! Status: %(status)d"
+  msg_fmt = "Volume is not available after creation! Status: %(status)s"
 
 class InstanceNotAvailableException(CheckOpenStackException):
-  msg_fmt = "Instance is not available after creation! Status: %(status)d"
+  msg_fmt = "Instance is not available after creation! Status: %(status)s"
 
 class InstanceNotPingableException(CheckOpenStackException):
-  msg_fmt = "Instance is not pingable! Status: %(status)d"
+  msg_fmt = "Instance is not pingable! Status: %(status)s"
 
 class HostNotAvailableException(CheckOpenStackException):
   msg_fmt = "Unable to ssh to %(host)s"
