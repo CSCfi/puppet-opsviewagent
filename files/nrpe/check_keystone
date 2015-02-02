@@ -87,10 +87,17 @@ for service in services:
 
 projectcount = len(c.tenants.list())
 totalusercount = len(c.users.list())
-cscusers = len(c.tenants.list_users("csc"))
-# Filter out training accounts
-training_accounts = len(c.tenants.list_users("trng"))
-noncscusers = totalusercount - (cscusers + training_accounts)
+# Filter out accounts, which might not exist
+try:
+  cscusers = len(c.tenants.list_users("csc"))
+except exceptions.NotFound:
+  cscusers = 0
+try:
+  training_accounts = len(c.tenants.list_users("trng"))
+  noncscusers = totalusercount - (cscusers + training_accounts)
+except exceptions.NotFound:
+  noncscusers = totalusercount - cscusers
+  
 # Formatted for OpsView/Nagios statistics
 stats = " | 'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s" % (projectcount, totalusercount, cscusers, noncscusers)
 
