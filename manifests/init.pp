@@ -45,10 +45,13 @@ class opsviewagent (
   $manage_firewall = true,
   $nagios_user = 'nagios',
   $nagios_public_ssh_key = undef,
+  $manage_yum_repos = true,
 ){
   $hosts = join( $allowed_hosts, ',' )
 
+if $manage_yum_repos {
   Yumrepo['opsview'] ~> Package['opsview-agent']
+}
   Package['opsview-agent'] -> File['nrpe.cfg']
   Package['opsview-agent'] -> File['nrpe-scripts']
   Package['opsview-agent'] -> Service['opsview-agent']
@@ -82,13 +85,14 @@ class opsviewagent (
     }
   }
 
+if $manage_yum_repos {
   yumrepo { 'opsview':
     baseurl  => 'http://downloads.opsview.com/opsview-core/latest/yum/centos/6Server/$basearch',
     enabled  => '1',
     protect  => '0',
     gpgcheck => '0',
   }
-
+}
   package { 'opsview-agent':
     ensure  => installed,
     require => User['nagios'],
