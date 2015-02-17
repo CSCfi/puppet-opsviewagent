@@ -258,8 +258,12 @@ class OSInstanceCheck(nova.Client):
     except:
       raise
     finally:
-      self.instance_destroy()
+      # We suspect the ordering is important here.
+      # The working assumption is that sometimes instance_destroy()
+      # takes tool long or fails, and that this might break things.
+      # Now we run it last.
       self.floating_ip_delete()
+      self.instance_destroy()
 
 class OSGhostInstanceCheck(nova.Client):
   '''
