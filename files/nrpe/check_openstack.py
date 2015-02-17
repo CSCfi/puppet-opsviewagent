@@ -5,16 +5,20 @@
 # Author: Uwe Grawert
 
 import os
+import os.path
 import sys
 import time
 import optparse
 import novaclient.v1_1.client as nova
 import cinderclient.exceptions
 import cinderclient.v1.client as cinder
+from neutronclient.neutron import client as neutronclient
+import keystoneclient.v2_0.client as keystoneclient
 
 import paramiko
 import socket
 import logging
+import yaml
 
 NAGIOS_STATE_OK       = 0
 NAGIOS_STATE_WARNING  = 1
@@ -35,6 +39,8 @@ DEFAULT_PING_INTERVAL    = 2
 STATUS_VOLUME_AVAILABLE  = 'available'
 STATUS_VOLUME_OK_DELETE  = ['available', 'error']
 STATUS_INSTANCE_ACTIVE   = 'ACTIVE'
+
+time_start = 0 # Used for timing excecution
 
 class CheckOpenStackException(Exception):
   ''' Base Exception '''
@@ -83,6 +89,7 @@ class OSCredentials(object):
   and provide the credentials.
   '''
   cred = dict()
+  keystone_cred = dict()
   
   def __init__(self, options):
     self.environment_credentials()
@@ -95,6 +102,11 @@ class OSCredentials(object):
       self.cred['username']   = os.environ['OS_USERNAME']
       self.cred['api_key']    = os.environ['OS_PASSWORD']
       self.cred['project_id'] = os.environ['OS_TENANT_NAME']
+      # Keystone only entries
+      self.keystone_cred['auth_url']    = os.environ['OS_AUTH_URL']
+      self.keystone_cred['username']    = os.environ['OS_USERNAME']
+      self.keystone_cred['password']    = os.environ['OS_PASSWORD']
+      self.keystone_cred['tenant_name'] = os.environ['OS_TENANT_NAME']
     except KeyError:
       pass
 
@@ -103,14 +115,25 @@ class OSCredentials(object):
     if options.username: self.cred['username']   = options.username
     if options.password: self.cred['api_key']    = options.password
     if options.tenant  : self.cred['project_id'] = options.tenant
+    # Keystone only entries
+    if options.auth_url: self.keystone_cred['auth_url']    = options.auth_url
+    if options.username: self.keystone_cred['username']    = options.username
+    if options.password: self.keystone_cred['password']    = options.password
+    if options.tenant  : self.keystone_cred['tenant_name'] = options.tenant
 
   def credentials_available(self):
     for key in ['auth_url', 'username', 'api_key', 'project_id']:
       if not key in self.cred:
         raise CredentialsMissingException(key=key)
+    for key in ['auth_url', 'username', 'password', 'tenant_name']:
+      if not key in self.keystone_cred:
+        raise CredentialsMissingException(key=key)
   
   def provide(self):
     return self.cred
+
+  def provide_keystone(self):
+    return self.keystone_cred
 
 class OSVolumeCheck(cinder.Client):
   '''
@@ -529,12 +552,104 @@ class OSVolumeErrorCheck(cinder.Client):
     except:
       raise
 
+class OSCapacityCheck():
+  '''
+  Report on capacity of:
+   - Number of VLANs
+  '''
+  options = dict()
+  neutron = None
+  nova = None
+
+  def __init__(self, options):
+    self.options = options
+
+    ''' Keystone has different credential dict '''
+    keystone_creds = OSCredentials(options).provide_keystone()
+    keystone = keystoneclient.Client(**keystone_creds)
+    keystone.authenticate()
+
+    ''' Credentials for everything else '''
+    creds = OSCredentials(options).provide()
+    neutron_endpoint = keystone.service_catalog.url_for(service_type='network',
+                                                        endpoint_type='publicURL')
+    self.neutron = neutronclient.Client('2.0', endpoint_url=neutron_endpoint,
+                                        token=keystone.auth_token)
+    self.nova = nova.Client(**creds)
+    self.nova.authenticate()
+
+  def check_vlan_capacity(self):
+    nets = self.neutron.list_networks()['networks']
+    vlans_in_use = len(nets)
+
+    # Need to find how many are available
+
+    config = None
+    # read yaml file. List if for debugging
+    configFiles = [ '/var/lib/nagios/vars.yml', 'openstack/vars.yml' ]
+    for configFile in configFiles:
+      logging.debug('Checking: ' + configFile)
+      if os.path.isfile(configFile):
+        logging.debug('Found: ' + configFile)
+        filehandle = open(configFile, 'r')
+        config = yaml.load(filehandle)
+        filehandle.close()
+        break # We only care about the first matching file
+
+    # The 'network_vlan_ranges' parameter looks like: 'default:80:89'
+    # the 2nd number is the lower vlan id, the 3rd is the higher id
+    vlan_range = config['network_vlan_ranges'].split(':')
+    vlans_total = int(vlan_range[2]) - int(vlan_range[1])
+
+    return { 'vlans_used': vlans_in_use, 'vlans_total': vlans_total }
+
+  def check_floating_ips(self):
+    # list_floatingips() returns a mess at the center of which is a list of
+    # dictionaries about the state of each floating ip
+    ips = self.neutron.list_floatingips().items()[0][1]
+
+    number_ips = len(ips) # Total number of floating IPs
+
+    ''' Allocated to a tenant but not used '''
+    allocated_not_assigned_ips = filter(lambda ip: ip['fixed_ip_address'] == None, ips)
+    allocated_not_assigned = len(allocated_not_assigned_ips)
+
+    ''' Allocated to a tenant and assigned to a vm '''
+    allocated_and_assigned_ips = filter(lambda ip:  ip['status'] == 'ACTIVE', ips)
+    allocated_and_assigned = len(allocated_and_assigned_ips)
+
+    allocated_ips = allocated_not_assigned + allocated_and_assigned
+
+    return { 'ips_total': number_ips, 'ips_allocated': allocated_ips,
+             'ips_allocated_not_assigned': allocated_not_assigned,
+             'ips_allocated_and_assigned': allocated_and_assigned }
+
+  def check_compute_capacity(self):
+    cpus_used = self.nova.hypervisors.statistics().vcpus_used
+    novas = self.nova.services.list(binary='nova-compute')
+    hvs = self.nova.hypervisors.list()
+    enabled = filter(lambda srv: srv.status == 'enabled', novas)
+    enabled_hosts = map(lambda x: x.host, enabled)
+    enabled_hypervisors = filter(lambda x: x.service['host'] in enabled_hosts, hvs)
+    hypervisor_cores_list = map(lambda x: x.vcpus, enabled_hypervisors)
+    cores = reduce(lambda x, y: x + y, hypervisor_cores_list)
+    return { 'cpus_available': cores, 'cpus_used': cpus_used }
+
+  def execute(self):
+    results = dict()
+    try:
+      results.update(self.check_vlan_capacity())
+      results.update(self.check_floating_ips())
+      results.update(self.check_compute_capacity())
+    except:
+      raise
+    return results
 
 def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
-  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes }'
+  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | capacity }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
@@ -594,7 +709,8 @@ def execute_check(options, args):
     'ghostinstance': OSGhostInstanceCheck,
     'ghostvolumessh': OSGhostVolumeCheck,
     'ghostvolume': OSVolumeErrorCheck,
-    'ghostnodes': OSGhostNodeCheck
+    'ghostnodes': OSGhostNodeCheck,
+    'capacity': OSCapacityCheck,
   }
 
 
@@ -602,54 +718,81 @@ def execute_check(options, args):
     print 'Unknown command argument! Use --help.'
     sys.exit(NAGIOS_STATE_UNKNOWN)
   
-  os_check[command](options).execute()
+  return os_check[command](options).execute()
+
+def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
+  '''
+  Exits with the specified exit_code and outputs any stats in the format 
+  nagios/opsview expects.
+  '''
+  time_end = time.time() - time_start
+  timing_info = {'seconds_used': int(time_end)}
+
+  if stats:
+    stats.update(timing_info)
+  else:
+    stats = timing_info
+
+  if exit_code == NAGIOS_STATE_OK:
+    output = 'OK |'
+  elif exit_code == NAGIOS_STATE_WARNING:
+    output = 'WARNING |'
+  else:
+    output = 'CRITICAL |'
+
+  for key in stats:
+    output += ' ' + key + '=' + str(stats[key])
+  print(output)
+  
+  sys.exit(exit_code)
 
 def main():
   '''
   Return Nagios status code
   '''
 
+  global time_start
   time_start = time.time()
+
+  results = dict()
 
   try:
     (options, args) = parse_command_line()
     if options.debug:
       logging.basicConfig(level=logging.DEBUG)
 
-    execute_check(options, args)
+    # Call the check
+    results = execute_check(options, args)
+
   except cinderclient.exceptions.BadRequest, e:
     print e
-    sys.exit(NAGIOS_STATE_WARNING)
+    exit_with_stats(NAGIOS_STATE_WARNING)
   except cinderclient.exceptions.Unauthorized, e:
     print e
-    sys.exit(NAGIOS_STATE_UNKNOWN)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
   except CredentialsMissingException, e:
     print e
-    sys.exit(NAGIOS_STATE_UNKNOWN)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
   except InstanceNotPingableException, e:
     print e
-    sys.exit(NAGIOS_STATE_WARNING)
+    exit_with_stats(NAGIOS_STATE_WARNING)
   except LostInstancesException as e:
     print e
-    sys.exit(NAGIOS_STATE_WARNING)
+    exit_with_stats(NAGIOS_STATE_WARNING)
   except HostsEnabledAndDownException as e:
     print e
-    sys.exit(NAGIOS_STATE_WARNING)
+    exit_with_stats(NAGIOS_STATE_WARNING)
   except HostNotAvailableException as e:
     print e
-    sys.exit(NAGIOS_STATE_WARNING)
+    exit_with_stats(NAGIOS_STATE_WARNING)
   except VolumeErrorException as e:
     print e
-    sys.exit(NAGIOS_STATE_WARNING)
-  except Exception as e:
-    print "{0}: {1}".format(e.__class__.__name__, e)
-    sys.exit(NAGIOS_STATE_CRITICAL)
-    
-  time_end = time.time() - time_start
+    exit_with_stats(NAGIOS_STATE_WARNING)
+  #except Exception as e:
+  #  print "{0}: {1}".format(e.__class__.__name__, e)
+  #  exit_with_stats(NAGIOS_STATE_CRITICAL)
 
-  print '----'
-  print 'OK | seconds used={0}'.format(int(time_end))
-  sys.exit(NAGIOS_STATE_OK)
+  exit_with_stats(NAGIOS_STATE_OK, results)
 
 if __name__ == '__main__':
   main()
