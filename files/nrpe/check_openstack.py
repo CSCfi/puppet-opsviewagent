@@ -19,6 +19,7 @@ import paramiko
 import socket
 import logging
 import yaml
+import re
 
 NAGIOS_STATE_OK       = 0
 NAGIOS_STATE_WARNING  = 1
@@ -612,8 +613,6 @@ class OSCapacityCheck():
     # dictionaries about the state of each floating ip
     ips = self.neutron.list_floatingips().items()[0][1]
 
-    number_ips = len(ips) # Total number of floating IPs
-
     ''' Allocated to a tenant but not used '''
     allocated_not_assigned_ips = filter(lambda ip: ip['fixed_ip_address'] == None, ips)
     allocated_not_assigned = len(allocated_not_assigned_ips)
@@ -624,9 +623,43 @@ class OSCapacityCheck():
 
     allocated_ips = allocated_not_assigned + allocated_and_assigned
 
-    return { 'ips_total': number_ips, 'ips_allocated': allocated_ips,
-             'ips_allocated_not_assigned': allocated_not_assigned,
-             'ips_allocated_and_assigned': allocated_and_assigned }
+    '''
+    Finding a list of all the IPs configured is a complex mess
+
+    This code assumes all our public ip subnets are /24's or smaller, but
+    it wouln't be much work to make it more generic.
+    '''
+    # For matching IP addresses
+    p = re.compile('^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$')
+    possible_router_names = ['router-nagiostest', 'nagiostest-router',
+                              'nagiostest', 'csc-router']
+    ips_total = 0
+
+    # Find the external network by checking what the a known csc router
+    # is connected to
+    nagios_test_router = filter(lambda rtr: rtr['name'] in possible_router_names,
+                                self.neutron.list_routers()['routers'])
+    public_network_id = nagios_test_router[0]['external_gateway_info']['network_id']
+
+    # Get a list of the external subnets used for floating ips
+    public_network = self.neutron.show_network(public_network_id)
+    public_subnets = public_network[u'network']['subnets']
+
+    # Count the number of ip's in each subnet
+    for subnet in public_subnets:
+      sn = self.neutron.show_subnet(subnet)
+      start_match = p.match(sn['subnet']['allocation_pools'][0]['start'])
+      end_match   = p.match(sn['subnet']['allocation_pools'][0]['end'])
+      if start_match:
+        start_third_octet  = int(start_match.group(3))
+        start_fourth_octet = int(start_match.group(4))
+        end_third_octet  = int(end_match.group(3))
+        end_fourth_octet = int(end_match.group(4))
+        ips_total += end_fourth_octet - start_fourth_octet
+
+    return { 'ips_total': ips_total, 'ips_allocated': allocated_ips,
+              'ips_allocated_not_assigned': allocated_not_assigned,
+              'ips_allocated_and_assigned': allocated_and_assigned }
 
   def check_compute_capacity(self):
     cpus_used = self.nova.hypervisors.statistics().vcpus_used
