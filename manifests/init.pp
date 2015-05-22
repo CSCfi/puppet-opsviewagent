@@ -72,6 +72,13 @@ class opsviewagent (
     }
   }
 
+  firewalld::service { 'gearman':
+    ports => [
+    { port     => $nrpe_port,
+      protocol => 'tcp' },
+    ]
+  }
+
   user { $nagios_user:
     ensure     => present,
     name       => $nagios_user,
