@@ -36,6 +36,7 @@ DEFAULT_VOLUME_SIZE      = 1
 DEFAULT_MAX_WAIT_TIME    = 90
 DEFAULT_PING_COUNT       = 5
 DEFAULT_PING_INTERVAL    = 2
+DEFAULT_NO_PING          = False
 
 STATUS_VOLUME_AVAILABLE  = 'available'
 STATUS_VOLUME_OK_DELETE  = ['available', 'error']
@@ -230,8 +231,9 @@ class OSInstanceCheck(nova.Client):
   def floating_ip_ping(self):
     count = self.options.ping_count
     interval = self.options.ping_interval
-    status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
-    if status != 0:
+    if hasattr(self, 'fip'):
+     status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
+     if status != 0:
       raise InstanceNotPingableException(status=status)
     
   def wait_instance_is_available(self):
@@ -254,8 +256,9 @@ class OSInstanceCheck(nova.Client):
       self.delete_orphaned_instances()
       self.instance_create()
       self.wait_instance_is_available()
-      self.instance_attach_floating_ip()
-      self.floating_ip_ping()
+      if self.options.no_ping == False:
+      	self.instance_attach_floating_ip()
+      	self.floating_ip_ping()
     except:
       raise
     finally:
@@ -706,6 +709,7 @@ def parse_command_line():
   parser.add_option("-v", "--volume_name", dest='volume_name', help='test volume name')
   parser.add_option("-s", "--volume_size", dest='volume_size', help='test volume size')
   parser.add_option("-w", "--wait", dest='wait', type='int', help='max seconds to wait for creation')
+  parser.add_option("-z", "--no-ping", dest='no_ping', action='store_true', help='no ping test')
   
   (options, args) = parser.parse_args()
 
@@ -723,6 +727,8 @@ def parse_command_line():
     options.network_name = DEFAULT_INSTANCE_NETWORK
   if not options.fip_pool:
     options.fip_pool = DEFAULT_INSTANCE_FIPPOOL
+  if not options.no_ping:
+    options.no_ping = DEFAULT_NO_PING
   if not options.ping_count:
     options.ping_count = DEFAULT_PING_COUNT
   if not options.ping_interval:
