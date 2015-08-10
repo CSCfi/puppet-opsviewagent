@@ -63,20 +63,28 @@ class opsviewagent (
   File['nrpe.cfg'] ~> Service['opsview-agent']
 
   if $manage_firewall {
-    firewall { '200 open nrpe port':
-      port   => $nrpe_port,
-      proto  => 'tcp',
-      state  => 'NEW',
-      action => 'accept',
-      source => $nrpe_allowed_net,
+    case $::opsviewagent::params::firewall_manager {
+      'iptables': {
+        firewall { '200 open nrpe port':
+          port   => $nrpe_port,
+          proto  => 'tcp',
+          state  => 'NEW',
+          action => 'accept',
+          source => $nrpe_allowed_net,
+        }
+      }
+      'firewalld': {
+        firewalld::service { 'gearman':
+          ports => [
+          { port     => $nrpe_port,
+            protocol => 'tcp' },
+          ]
+        }
+      }
+      default: {
+        fail('Your OS is not supported by the opsview module.')
+      }
     }
-  }
-
-  firewalld::service { 'gearman':
-    ports => [
-    { port     => $nrpe_port,
-      protocol => 'tcp' },
-    ]
   }
 
   user { $nagios_user:
