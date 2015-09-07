@@ -5,26 +5,33 @@ define opsviewagent::nrpe_command(
 ) {
   File[$name] ~> Service['opsview-agent']
 
+  # script is defined with absolute path
+  if $script_name =~ /^\/.*/ {
+    $command = "${script_name} ${script_arguments}\n"
+  } else {
+    $command = "${opsviewagent::nrpe_local_script_path}/${script_name} ${script_arguments}\n"
+  }
+
   if $use_sudo == false {
     file { $name:
       path    => "${opsviewagent::nrpe_local_configs_path}/${name}.cfg",
-      content => "command[${name}]=${opsviewagent::nrpe_local_script_path}/${script_name} ${script_arguments}\n",
+      content => "command[${name}]=${command}",
       owner   => 'nagios',
       group   => 'nagios',
-      mode    => 600,
+      mode    => '0600',
     }
   }
   else {
     file { $name:
       path    => "${opsviewagent::nrpe_local_configs_path}/${name}.cfg",
-      content => "command[${name}]=sudo ${opsviewagent::nrpe_local_script_path}/${script_name} ${script_arguments}\n",
+      content => "command[${name}]=${command}",
       owner   => 'nagios',
       group   => 'nagios',
-      mode    => 600,
-    } 
+      mode    => '0600',
+    }
 
     sudo::conf { $name:
-      content  => "Defaults !requiretty\nnagios ALL=(ALL) NOPASSWD: ${opsviewagent::nrpe_local_script_path}/${script_name}\n",
+      content  => "Defaults !requiretty\nnagios ALL=(ALL) NOPASSWD: ${command}",
     }
   }
 }
