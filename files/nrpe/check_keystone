@@ -85,21 +85,36 @@ for service in services:
     if not any([ "publicURL" in endpoint.keys() for endpoint in endpoints[service] ]):
         msgs.append("`%s' service has no publicURL" % service)
 
-projectcount = len(c.tenants.list())
-totalusercount = len(c.users.list())
-# Filter out accounts, which might not exist
-try:
-  cscusers = len(c.tenants.list_users("csc"))
-except exceptions.NotFound:
-  cscusers = 0
-try:
-  training_accounts = len(c.tenants.list_users("trng"))
-  noncscusers = totalusercount - (cscusers + training_accounts)
-except exceptions.NotFound:
-  noncscusers = totalusercount - cscusers
-  
+users = c.users.list()
+tenants = c.tenants.list()
+
+cscusers = 0
+noncscusers = 0
+email_addresses = []
+
+for user in users:
+    # If no email address is assigned, the user is a system user and should not
+    # count towards the totals
+    if not hasattr(user, "email"):
+        continue
+    elif user.email in email_addresses:
+        # We already counted this user -> pass
+        continue
+    else:
+        email_addresses.append(user.email)
+
+    if user.username[:4] == "trng":
+        pass
+    elif user.email[-7:] == "@csc.fi":
+        cscusers += 1
+    else:
+        noncscusers +=1
+
+totalusers = cscusers + noncscusers
+totalprojects = len(tenants)
+
 # Formatted for OpsView/Nagios statistics
-stats = " | 'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s" % (projectcount, totalusercount, cscusers, noncscusers)
+stats = " | 'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s" % (totalprojects, totalusers, cscusers, noncscusers)
 
 if msgs:
     print "Keystone: WARNING" + ", ".join(msgs) + stats
