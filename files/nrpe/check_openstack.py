@@ -616,6 +616,11 @@ class OSCapacityCheck():
     # dictionaries about the state of each floating ip
     ips = self.neutron.list_floatingips().items()[0][1]
 
+    # Handle the case where there are no floating ips by returning nothing
+    # The rest of this method does not do any sanity checking. Use the --no-ping
+    # option to totally disable floating ip capacity checking.
+    if not ips: return {}
+
     ''' Allocated to a tenant but not used '''
     allocated_not_assigned_ips = filter(lambda ip: ip['fixed_ip_address'] == None, ips)
     allocated_not_assigned = len(allocated_not_assigned_ips)
@@ -679,7 +684,8 @@ class OSCapacityCheck():
     results = dict()
     try:
       results.update(self.check_vlan_capacity())
-      results.update(self.check_floating_ips())
+      if self.options.no_ping == False:
+        results.update(self.check_floating_ips())
       results.update(self.check_compute_capacity())
     except:
       raise
