@@ -1,0 +1,25 @@
+#!/usr/bin/bash
+# Nagios plugin to if systemd thinks any services have failed
+
+# nagios return codes
+OK="0"
+WARN="1"
+CRITICAL="2"
+UNKNOWN="3"
+
+warn_threshold=1
+crit_threshold=2
+number_failed=$(systemctl --failed --all | sed -n 's/ loaded units listed\.//p')
+
+if (( $number_failed == 0)); then
+  echo OK
+  exit $OK
+elif (( $number_failed >= $warn_threshold )) && (( $number_failed < $crit_threshold)); then
+  echo "WARNING: $number_failed services failed"
+  systemctl --failed --all
+  exit $WARN
+else
+  echo "CRITICAL: $number_failed services failed"
+  systemctl --failed --all
+  exit $CRITICAL
+fi
