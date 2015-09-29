@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# Keystone monitoring script for Nagios using Keystone V3 API
 #
-# Keystone monitoring script for Nagios
+# Copyright 2015 CSC - IT Center For Science
 #
-# Copyright © 2012 eNovance <licensing@enovance.com>
-#
-# Author: Julien Danjou <julien@danjou.info>
+# Author: Uwe Grawert <uwe.grawert@csc.fi>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,104 +19,135 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
 import sys
 import argparse
-import re
-from keystoneclient.v2_0 import client
-from keystoneclient import exceptions
+import keystoneclient.v3.client as keystone
 
-STATE_OK = 0
-STATE_WARNING = 1
-STATE_CRITICAL = 2
-STATE_UNKNOWN = 3
+NAGIOS_STATE_OK       = 0
+NAGIOS_STATE_WARNING  = 1
+NAGIOS_STATE_CRITICAL = 2
+NAGIOS_STATE_UNKNOWN  = 3
 
+NAGIOS_STATE = [ 'OK', 'WARNING', 'CRITICAL', 'UNKNOWN' ]
 
-parser = argparse.ArgumentParser(description='Check an OpenStack Keystone server.')
-parser.add_argument('--auth_url', metavar='URL', type=str,
-                    required=True,
-                    help='Keystone URL')
-parser.add_argument('--username', metavar='username', type=str,
-                    required=True,
-                    help='username to use for authentication')
-parser.add_argument('--password', metavar='password', type=str,
-                    required=True,
-                    help='password to use for authentication')
-parser.add_argument('--tenant', metavar='tenant', type=str,
-                    required=True,
-                    help='tenant name to use for authentication')
-parser.add_argument('--region_name', metavar='region_name', type=str,
-                    help='Region to select for authentication')
-parser.add_argument('--no-admin', action='store_true', default=False,
-                    help='Don\'t perform admin tests, useful if user is not admin')
-parser.add_argument('services', metavar='SERVICE', type=str, nargs='*',
-                    help='services to check for')
-args = parser.parse_args()
+class CheckException(Exception):
+  ''' Exception with Nagios exit status '''
+  def __init__(self, message, status=NAGIOS_STATE_CRITICAL):
+    self.message = message
+    self.status  = status
+  def __str__(self):
+    return self.message
 
+class CheckKeystone(keystone.Client):
+  '''
+  Check Keystone functionality
+  '''
+  def __init__(self, credentials):
+    super(CheckKeystone, self).__init__(**credentials)
+    self.authenticate()
 
-try:
-    c = client.Client(username=args.username,
-                  tenant_name=args.tenant,
-                  password=args.password,
-                  auth_url=args.auth_url,
-                  region_name=args.region_name)
-    if not c.authenticate():
-        raise Exception("Authentication failed")
-    if not args.no_admin:
-        if not c.tenants.list():
-            raise Exception("Tenant list is empty")
-except Exception as e:
-    print "Keystone: CRITICAL " + str(e)
-    sys.exit(STATE_CRITICAL)
+  def check_service_endpoints(self):
+    for service in self.services.list(enabled=True):
+      if not len(self.endpoints.list(service=service,interface='public')):
+        raise CheckException(
+                "Service %s has no 'public' endpoint defined" % service.name,
+                NAGIOS_STATE_WARNING)
+      if not len(self.endpoints.list(service=service, interface='admin')):
+        raise CheckException(
+                "Service %s has no 'admin' endpoint defined" % service.name,
+                NAGIOS_STATE_CRITICAL)
+      if not len(self.endpoints.list(service=service, interface='internal')):
+        raise CheckException(
+                "Service %s has no 'internal' endpoint defined" % service.name,
+                NAGIOS_STATE_CRITICAL)
 
-msgs = []
-endpoints = c.service_catalog.get_endpoints()
-services = args.services or endpoints.keys()
-for service in services:
-    if not service in endpoints.keys():
-        msgs.append("`%s' service is missing" % service)
-        continue
+  def csc_stats(self, domain_name):
+    try:
+      domain_id = self.domains.list(name=domain_name).pop().id
+    except Exception:
+      raise CheckException("Can not query CSC stats. Domain not found: %s" % domain_name)
 
-    if not len(endpoints[service]):
-        msgs.append("`%s' service is empty" % service)
-        continue
+    projects = self.projects.list()
+    users    = self.users.list(domain=domain_id)
+    # remove training and system users from user list
+    users    = filter(lambda user: 'trng' not in user.name, users)
+    users    = filter(lambda user: hasattr(user, 'email'), users)
+    users    = filter(lambda user: '@localhost' not in user.email, users)
 
-    if not any([ "publicURL" in endpoint.keys() for endpoint in endpoints[service] ]):
-        msgs.append("`%s' service has no publicURL" % service)
+    # list of unique email addresses
+    uniq_users = list(set([user.email for user in users]))
+    # filter CSC users
+    csc_users  = filter(lambda user: '@csc.fi' in user, uniq_users)
 
-users = c.users.list()
-tenants = c.tenants.list()
+    return "'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s" % \
+           (len(projects), len(uniq_users), len(csc_users),
+            len(uniq_users) - len(csc_users))
 
-cscusers = 0
-noncscusers = 0
-email_addresses = []
+def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
+  '''
+  Exits with the specified exit_code and output in the format 
+  nagios/opsview expects.
+  '''
+  print('Keystone: ' + NAGIOS_STATE[exit_code] + ' | ' + output)
+  sys.exit(exit_code)
 
-for user in users:
-    # If no email address is assigned, the user is a system user and should not
-    # count towards the totals
-    if not hasattr(user, "email"):
-        continue
-    elif user.email in email_addresses:
-        # We already counted this user -> pass
-        continue
-    else:
-        email_addresses.append(user.email)
+def main():
+  parser = argparse.ArgumentParser(description='Check an OpenStack Keystone server')
+  parser.add_argument('--username',
+                      metavar='<auth-user-name>',
+                      default=os.environ.get('OS_USERNAME'),
+                      help='Name used for authentication with the '
+                           'OpenStack Identity service. '
+                           'Defaults to env[OS_USERNAME].')
+  parser.add_argument('--password',
+                      metavar='<auth-password>',
+                      default=os.environ.get('OS_PASSWORD'),
+                      help='Password used for authentication with the '
+                           'OpenStack Identity service. '
+                           'Defaults to env[OS_PASSWORD].')
+  parser.add_argument('--project_name',
+                      metavar='<auth-project-name>',
+                      default=os.environ.get('OS_TENANT_NAME'),
+                      help='Project to request authorization on. '
+                           'Defaults to env[OS_TENANT_NAME].')
+  parser.add_argument('--project_id',
+                      metavar='<tenant-id>',
+                      default=os.environ.get('OS_TENANT_ID'),
+                      help='Project id to request authorization on. '
+                           'Defaults to env[OS_TENANT_ID].')
+  parser.add_argument('--domain_name',
+                      metavar='<auth-domain-name>',
+                      default=os.environ.get('OS_DOMAIN_NAME'),
+                      help='Domain to request authorization on. '
+                           'Defaults to env[OS_DOMAIN_NAME].')
+  parser.add_argument('--domain_id',
+                      metavar='<auth-domain-id>',
+                      default=os.environ.get('OS_DOMAIN_ID'),
+                      help='Domain id to request authorization on. '
+                           'Defaults to env[OS_DOMAIN_ID].')
+  parser.add_argument('--auth_url',
+                      metavar='<auth-url>',
+                      default=os.environ.get('OS_AUTH_URL'),
+                      help='Specify the Identity endpoint to use for '
+                           'authentication. '
+                           'Defaults to env[OS_AUTH_URL].')
+  parser.add_argument('--csc_stats_domain',
+                      metavar='<csc-stats-domain>',
+                      default='users',
+                      help='Domain name for user query in CSC stats. '
+                           'Defaults to \'users\'.')
+  args = parser.parse_args()
 
-    if user.username[:4] == "trng":
-        pass
-    elif user.email[-7:] == "@csc.fi":
-        cscusers += 1
-    else:
-        noncscusers +=1
+  try:
+    check = CheckKeystone(vars(args))
+    check.check_service_endpoints()
+    csc_stats = check.csc_stats(args.csc_stats_domain)
+    exit_output(NAGIOS_STATE_OK, csc_stats)
+  except CheckException as e:
+    exit_output(e.status, e.message)
+  except Exception as e:
+    exit_output(NAGIOS_STATE_UNKNOWN, e.message)
 
-totalusers = cscusers + noncscusers
-totalprojects = len(tenants)
-
-# Formatted for OpsView/Nagios statistics
-stats = " | 'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s" % (totalprojects, totalusers, cscusers, noncscusers)
-
-if msgs:
-    print "Keystone: WARNING" + ", ".join(msgs) + stats
-    sys.exit(STATE_WARNING)
-
-print "Keystone: OK" + stats
-sys.exit(STATE_OK)
+if __name__ == '__main__':
+  main()
