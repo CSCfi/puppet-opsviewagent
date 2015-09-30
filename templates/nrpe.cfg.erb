@@ -24,7 +24,7 @@ pid_file=/var/tmp/opsview_nrpe.pid
 # Port number we should wait for connections on.
 # NOTE: This must be a non-priviledged port (i.e. > 1024).
 # NOTE: This option is ignored if NRPE is running under either inetd or xinetd
-server_port=5666
+server_port=<%= @nrpe_port %>
 
 # SERVER ADDRESS
 # Address that nrpe should bind to in case there are more than one interface
@@ -37,14 +37,14 @@ server_port=5666
 # You can either supply a username or a UID.
 #
 # NOTE: This option is ignored if NRPE is running under either inetd or xinetd
-nrpe_user=nagios
+nrpe_user=<%= @nagios_user %>
 
 # NRPE GROUP
 # This determines the effective group that the NRPE daemon should run as.
 # You can either supply a group name or a GID.
 #
 # NOTE: This option is ignored if NRPE is running under either inetd or xinetd
-nrpe_group=nagios
+nrpe_group=<%= @nagios_user %>
 
 # ALLOWED HOST ADDRESSES
 # This is an optional comma-delimited list of IP address or hostnames
@@ -158,7 +158,7 @@ command[check_cpu]=<%= @nrpe_local_script_path %>/check_cpu $ARG1$
 # Defining a Opsview check definition in one of the included files will
 # override the default definition above.
 #
-include_dir=/usr/local/nagios/etc/nrpe_local
+include_dir=<%= @nrpe_local_configs_path %>
 
 # Uncomment to allow old NRPE configuration (backwards compatibility).
 #include_dir=/etc/nagios/nrpe.d/
