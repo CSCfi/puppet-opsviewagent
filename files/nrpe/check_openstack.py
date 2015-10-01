@@ -612,6 +612,8 @@ class OSCapacityCheck():
     return { 'vlans_used': vlans_in_use, 'vlans_total': vlans_total }
 
   def check_floating_ips(self):
+    # This method needs to handle the case where there are no floating ips at all
+
     # list_floatingips() returns a mess at the center of which is a list of
     # dictionaries about the state of each floating ip
     ips = self.neutron.list_floatingips().items()[0][1]
@@ -621,6 +623,26 @@ class OSCapacityCheck():
     # option to totally disable floating ip capacity checking.
     if not ips: return {}
 
+    # We need to know the ID of our 'public' router for this code. There isn't
+    # a nice way to get this because customers can also reuse the same name.
+    # Here we find the external network by checking what the a known csc router
+    # is connected to.
+    possible_router_names = ['router-nagiostest', 'nagiostest-router',
+                              'nagiostest', 'csc-router']
+    nagios_test_router = filter(lambda rtr: rtr['name'] in possible_router_names,
+                                self.neutron.list_routers()['routers'])
+    public_network_id = nagios_test_router[0]['external_gateway_info']['network_id']
+
+    # Our public IP's are used for routers in addition to instances so we must
+    # first get the total number of our public IPs assigned to ports
+    ports = self.neutron.list_ports().items()[0][1]
+    allocated_ports = filter(lambda port: port['network_id'] == public_network_id, ports)
+    allocated_ips = len(allocated_ports)
+
+    # Now we have the total number of allocated IP's we can work out the status
+    # of some of them. Are they for routers or instances? Are they actually allocated?
+
+
     ''' Allocated to a tenant but not used '''
     allocated_not_assigned_ips = filter(lambda ip: ip['fixed_ip_address'] == None, ips)
     allocated_not_assigned = len(allocated_not_assigned_ips)
@@ -629,7 +651,8 @@ class OSCapacityCheck():
     allocated_and_assigned_ips = filter(lambda ip:  ip['status'] == 'ACTIVE', ips)
     allocated_and_assigned = len(allocated_and_assigned_ips)
 
-    allocated_ips = allocated_not_assigned + allocated_and_assigned
+    ''' Allocated to a router (we assume) '''
+    allocated_to_routers = allocated_ips - (allocated_not_assigned + allocated_and_assigned)
 
     '''
     Finding a list of all the IPs configured is a complex mess
@@ -639,15 +662,8 @@ class OSCapacityCheck():
     '''
     # For matching IP addresses
     p = re.compile('^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$')
-    possible_router_names = ['router-nagiostest', 'nagiostest-router',
-                              'nagiostest', 'csc-router']
     ips_total = 0
 
-    # Find the external network by checking what the a known csc router
-    # is connected to
-    nagios_test_router = filter(lambda rtr: rtr['name'] in possible_router_names,
-                                self.neutron.list_routers()['routers'])
-    public_network_id = nagios_test_router[0]['external_gateway_info']['network_id']
 
     # Get a list of the external subnets used for floating ips
     public_network = self.neutron.show_network(public_network_id)
@@ -667,7 +683,8 @@ class OSCapacityCheck():
 
     return { 'ips_total': ips_total, 'ips_allocated': allocated_ips,
               'ips_allocated_not_assigned': allocated_not_assigned,
-              'ips_allocated_and_assigned': allocated_and_assigned }
+              'ips_allocated_and_assigned': allocated_and_assigned,
+              'allocated_to_routers': allocated_to_routers }
 
   def check_compute_capacity(self):
     cpus_used = self.nova.hypervisors.statistics().vcpus_used
