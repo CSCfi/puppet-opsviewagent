@@ -627,21 +627,34 @@ class OSCapacityCheck():
     # a nice way to get this because customers can also reuse the same name.
     # Here we find the external network by checking what the a known csc router
     # is connected to.
+    '''
     possible_router_names = ['router-nagiostest', 'nagiostest-router',
                               'nagiostest', 'csc-router']
     nagios_test_router = filter(lambda rtr: rtr['name'] in possible_router_names,
                                 self.neutron.list_routers()['routers'])
     public_network_id = nagios_test_router[0]['external_gateway_info']['network_id']
+    '''
+
+    SERVICE_TENANT_ID="service"
+    PUBLIC_NET_NAME="public"
+    public_network_id = self.neutron.list_networks(tenant_id=SERVICE_TENANT_ID,
+                         name=PUBLIC_NET_NAME)['networks'][0]['id']
 
     # Our public IP's are used for routers in addition to instances so we must
     # first get the total number of our public IPs assigned to ports
     ports = self.neutron.list_ports().items()[0][1]
-    allocated_ports = filter(lambda port: port['network_id'] == public_network_id, ports)
-    allocated_ips = len(allocated_ports)
+    ports_on_public_network = filter(lambda port: port['network_id'] == public_network_id, ports)
 
-    # Now we have the total number of allocated IP's we can work out the status
-    # of some of them. Are they for routers or instances? Are they actually allocated?
 
+    allocated_router = filter(lambda port: port['device_owner'] == 'network:router_gateway', ports_on_public_network)
+    allocated_to_routers = len(allocated_router)
+
+    allocated_dhcp = filter(lambda port: port['device_owner'] == 'network:dhcp', ports_on_public_network)
+    allocated_to_dhcp = len(allocated_dhcp)
+
+    # We can work out the numer of IPs used for instances using the information
+    # about ports, but we can get better stats for these IP's using the
+    # floating IP interface
 
     ''' Allocated to a tenant but not used '''
     allocated_not_assigned_ips = filter(lambda ip: ip['fixed_ip_address'] == None, ips)
@@ -651,8 +664,11 @@ class OSCapacityCheck():
     allocated_and_assigned_ips = filter(lambda ip:  ip['status'] == 'ACTIVE', ips)
     allocated_and_assigned = len(allocated_and_assigned_ips)
 
-    ''' Allocated to a router (we assume) '''
-    allocated_to_routers = allocated_ips - (allocated_not_assigned + allocated_and_assigned)
+    # Add all these together to give a simple metric for all used public IPs
+    # Note: the current grafana view doesn't use this metric and instead stacks
+    # all the individual values so we can see what is using the most.
+    allocated_ips = allocated_not_assigned + allocated_and_assigned + \
+                    allocated_to_routers + allocated_to_dhcp
 
     '''
     Finding a list of all the IPs configured is a complex mess
@@ -663,7 +679,6 @@ class OSCapacityCheck():
     # For matching IP addresses
     p = re.compile('^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$')
     ips_total = 0
-
 
     # Get a list of the external subnets used for floating ips
     public_network = self.neutron.show_network(public_network_id)
@@ -684,7 +699,8 @@ class OSCapacityCheck():
     return { 'ips_total': ips_total, 'ips_allocated': allocated_ips,
               'ips_allocated_not_assigned': allocated_not_assigned,
               'ips_allocated_and_assigned': allocated_and_assigned,
-              'allocated_to_routers': allocated_to_routers }
+              'ips_allocated_to_routers': allocated_to_routers,
+              'ips_allocated_to_dhcp': allocated_to_dhcp }
 
   def check_compute_capacity(self):
     cpus_used = self.nova.hypervisors.statistics().vcpus_used
@@ -701,7 +717,7 @@ class OSCapacityCheck():
     results = dict()
     try:
       results.update(self.check_vlan_capacity())
-      if self.options.no_ping == False:
+      if self.options.no_ping == True:
         results.update(self.check_floating_ips())
       results.update(self.check_compute_capacity())
     except:
