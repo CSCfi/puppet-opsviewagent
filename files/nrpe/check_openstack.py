@@ -717,7 +717,7 @@ class OSCapacityCheck():
     results = dict()
     try:
       results.update(self.check_vlan_capacity())
-      if self.options.no_ping == True:
+      if self.options.no_ping == False:
         results.update(self.check_floating_ips())
       results.update(self.check_compute_capacity())
     except:
