@@ -256,7 +256,7 @@ class OSInstanceCheck(nova.Client):
       self.delete_orphaned_instances()
       self.instance_create()
       self.wait_instance_is_available()
-      if self.options.no_ping == False:
+      if self.options.no_ping != False:
       	self.instance_attach_floating_ip()
       	self.floating_ip_ping()
     except:
