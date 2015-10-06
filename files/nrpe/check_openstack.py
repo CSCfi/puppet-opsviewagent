@@ -251,9 +251,16 @@ class OSInstanceCheck(nova.Client):
     for instance in self.servers.list(search_opts=search):
       instance.delete()
 
+  def delete_orphaned_floating_ips(self):
+    for tenant_ip in self.floating_ips.list():
+      self.floating_ips.delete(tenant_ip)
+    if len(self.floating_ips.list()) != 0:
+      logging.warn('All floating IPs of instance creation test tenant were not deleted.') 
+
   def execute(self):
     try:
       self.delete_orphaned_instances()
+      self.delete_orphaned_floating_ips()
       self.instance_create()
       self.wait_instance_is_available()
       if self.options.no_ping == False:
