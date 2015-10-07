@@ -60,6 +60,7 @@ class opsviewagent (
   Package['opsview-agent'] -> Service['opsview-agent']
   Package['opsview-agent'] -> Opsviewagent::Nrpe_command<||>
   File['nrpe-scripts'] -> Service['opsview-agent']
+  File['nrpe-configs'] -> Service['opsview-agent']
   File['nrpe.cfg'] ~> Service['opsview-agent']
 
   if $manage_firewall {
@@ -136,6 +137,16 @@ class opsviewagent (
     mode    => '0644',
     owner   => 'root',
     group   => 'root',
+  }
+
+  file { 'nrpe-configs':
+    ensure  => directory,
+    path    => $nrpe_local_configs_path,
+    recurse => true,
+    purge   => true,
+    mode    => '0550',
+    owner   => 'nagios',
+    group   => 'nagios',
   }
 
   file { 'nrpe-scripts':
