@@ -1,0 +1,79 @@
+#!/bin/bash
+#
+# Nagios check for file age
+#
+# Author: Uwe Grawert <uwe.grawert@csc.fi>
+
+NAGIOS_EXIT_OK=0
+NAGIOS_EXIT_WARNING=1
+NAGIOS_EXIT_CRITICAL=2
+NAGIOS_EXIT_UNKOWN=3
+
+FILES=
+
+function help_and_exit() {
+  cat << EOF
+Usage: $0 -w [warning %] -c [critical %] filename filename ...
+
+Options:
+ -w [0-99] = file age in hours
+ -c [0-99] = file age in hours
+EOF
+
+  exit $NAGIOS_EXIT_UNKOWN
+}
+
+while (( $# )); do
+  case $1 in
+  --help|-h) help_and_exit ;;
+  -w) WARN="$2"; shift 2 ;;
+  -c) CRIT="$2"; shift 2 ;;
+   *) FILES+=" $1"; shift ;;
+  esac
+done
+
+# no files given as parameters
+[[ -z "$FILES" ]] && help_and_exit
+
+# defaults
+[ -z "$WARN" ] && WARN=24
+[ -z "$CRIT" ] && CRIT=48
+
+TIME_WARN=$(date +%s --date="$WARN hours ago")
+TIME_CRIT=$(date +%s --date="$CRIT hours ago")
+
+EXIT_MSG=()
+EXIT_CODE=$NAGIOS_EXIT_OK
+
+for FILE in $FILES; do
+  test -s $FILE
+  case $? in
+    0)
+      FILE_AGE=$(stat --format="%Y" $FILE)
+
+      if [[ $FILE_AGE -lt $TIME_WARN ]]; then
+         EXIT_MSG+=("WARNING - $FILE: $(date -d @$FILE_AGE)")
+         (( EXIT_CODE |= NAGIOS_EXIT_WARNING ))
+         continue
+      fi
+
+      if [[ $FILE_AGE -lt $TIME_CRIT ]]; then
+        EXIT_MSG+=("CRITICAL - $FILE: $(date -d @$FILE_AGE)")
+        (( EXIT_CODE |= NAGIOS_EXIT_CRITICAL ))
+        continue
+      fi
+
+      EXIT_MSG+=("OK - $FILE: $(date -d @$FILE_AGE)")
+      (( EXIT_CODE |= NAGIOS_EXIT_OK ))
+      ;;
+    *)
+      EXIT_MSG+=("CRITICAL - zero size or does not exist: $FILE")
+      (( EXIT_CODE |= NAGIOS_EXIT_CRITICAL ))
+      ;;
+  esac
+done
+
+(( EXIT_CODE & $NAGIOS_EXIT_CRITICAL )) && EXIT_CODE=$NAGIOS_EXIT_CRITICAL
+  
+printf '%s\n' "${EXIT_MSG[@]}"
+exit $EXIT_CODE
