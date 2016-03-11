@@ -60,8 +60,8 @@ class opsviewagent (
   Package['opsview-agent'] -> File['nrpe-scripts']
   Package['opsview-agent'] -> Service['opsview-agent']
   Package['opsview-agent'] -> Opsviewagent::Nrpe_command<||>
-  File['nrpe-scripts'] -> Service['opsview-agent']
-  File['nrpe-configs'] -> Service['opsview-agent']
+  File['nrpe-scripts'] ~> Service['opsview-agent']
+  File['nrpe-configs'] ~> Service['opsview-agent']
   File['nrpe.cfg'] ~> Service['opsview-agent']
 
   if $manage_firewall {
@@ -128,8 +128,10 @@ class opsviewagent (
   }
 
   service { 'opsview-agent':
-    ensure => running,
-    enable => true,
+    ensure  => running,
+    enable  => true,
+    restart => '/etc/init.d/opsview-agent restart',
+    start   => '/etc/init.d/opsview-agent restart',
   }
 
   file { 'nrpe.cfg':
