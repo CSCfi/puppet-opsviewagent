@@ -720,6 +720,30 @@ class OSCapacityCheck():
     cores = reduce(lambda x, y: x + y, hypervisor_cores_list)
     return { 'cpus_available': cores, 'cpus_used': cpus_used }
 
+  def check_host_aggregate_capacities(self):
+    host_aggr_capacities = dict()
+
+    host_aggregates = self.nova.aggregates.list()
+    novas = self.nova.services.list(binary='nova-compute')
+    hypervisors = self.nova.hypervisors.list()
+    enabled = filter(lambda srv: srv.status == 'enabled', novas)
+    enabled_hosts = map(lambda x: x.host, enabled)
+    enabled_hypervisors = filter(lambda x: x.service['host'] in enabled_hosts, hypervisors)
+
+    for aggr in host_aggregates:
+      aggr_hypervisors = filter(lambda hv: hv.hypervisor_hostname in aggr.hosts, enabled_hypervisors)
+
+      total_aggr_cpus = sum(map(lambda hv: hv.vcpus, aggr_hypervisors))
+      total_aggr_mem = sum(map(lambda hv: hv.memory_mb, aggr_hypervisors))
+      used_aggr_cpus = sum(map(lambda hv: hv.vcpus_used, aggr_hypervisors))
+      used_aggr_mem = sum(map(lambda hv: hv.memory_mb_used, aggr_hypervisors))
+
+      host_aggr_capacities.update({"aggr_"+aggr.name+"_cpus_used": used_aggr_cpus,
+                                    "aggr_"+aggr.name+"_mem_used": used_aggr_mem,
+                                    "aggr_"+aggr.name+"_cpus_available": total_aggr_cpus,
+                                    "aggr_"+aggr.name+"_mem_available": total_aggr_mem})
+    return host_aggr_capacities
+
   def execute(self):
     results = dict()
     try:
@@ -727,6 +751,7 @@ class OSCapacityCheck():
       if self.options.no_ping == False:
         results.update(self.check_floating_ips())
       results.update(self.check_compute_capacity())
+      results.update(self.check_host_aggregate_capacities())
     except:
       raise
     return results
