@@ -709,17 +709,6 @@ class OSCapacityCheck():
               'ips_allocated_to_routers': allocated_to_routers,
               'ips_allocated_to_dhcp': allocated_to_dhcp }
 
-  def check_compute_capacity(self):
-    cpus_used = self.nova.hypervisors.statistics().vcpus_used
-    novas = self.nova.services.list(binary='nova-compute')
-    hvs = self.nova.hypervisors.list()
-    enabled = filter(lambda srv: srv.status == 'enabled', novas)
-    enabled_hosts = map(lambda x: x.host, enabled)
-    enabled_hypervisors = filter(lambda x: x.service['host'] in enabled_hosts, hvs)
-    hypervisor_cores_list = map(lambda x: x.vcpus, enabled_hypervisors)
-    cores = reduce(lambda x, y: x + y, hypervisor_cores_list)
-    return { 'cpus_available': cores, 'cpus_used': cpus_used }
-
   def check_host_aggregate_capacities(self):
     host_aggr_capacities = dict()
 
@@ -750,7 +739,6 @@ class OSCapacityCheck():
       results.update(self.check_vlan_capacity())
       if self.options.no_ping == False:
         results.update(self.check_floating_ips())
-      results.update(self.check_compute_capacity())
       results.update(self.check_host_aggregate_capacities())
     except:
       raise
