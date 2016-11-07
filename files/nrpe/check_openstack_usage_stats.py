@@ -30,8 +30,9 @@ def get_list_of_users_with_vms(nova):
 def get_number_of_users_with_vms(nova):
     return len(set(get_list_of_users_with_vms(nova)))
 
-def get_real_users(keystone):
-    all_users = keystone.users.list()
+def get_real_users(keystone, user_domain_name="default"):
+    user_domain_id = keystone.domains.find(name=user_domain_name).id
+    all_users = keystone.users.list(domain=user_domain_id)
 
     users = filter(lambda user: 'trng' not in user.name, all_users)
     users = filter(lambda user: hasattr(user, 'email'), users)
@@ -43,21 +44,15 @@ def get_vm_user_ids(nova):
     all_servers = get_all_servers(nova)
     return map(lambda x: x.user_id, all_servers)
 
-def get_csc_users(keystone):
-    users = get_real_users(keystone)
-
+def get_csc_user_ids(keystone, user_domain_name="default"):
+    users = get_real_users(keystone, user_domain_name)
     csc_users = filter(lambda user: '@csc.fi' in user.email, users)
-
-    return csc_users
-
-def get_csc_user_ids(keystone):
-    csc_users = get_csc_users(keystone)
     return map(lambda x: x.id, csc_users)
 
-def get_csc_user_ids_with_vms(nova, keystone):
+def get_csc_user_ids_with_vms(nova, keystone, user_domain_name="default"):
     csc_vm_users = list()
     vm_user_ids = get_vm_user_ids(nova)
-    csc_user_ids = get_csc_user_ids(keystone)
+    csc_user_ids = get_csc_user_ids(keystone, user_domain_name)
 
     for user_id in vm_user_ids:
         if user_id in csc_user_ids:
@@ -76,7 +71,8 @@ def parse_command_line():
   parser.add_option("-p", "--password", dest='password', help='password')
   parser.add_option("-i", "--project_id", dest='project_id', help='project id')
   parser.add_option("-n", "--project_name", dest='project_name', help='project name')
-  parser.add_option("-o", "--domain_id", dest='domain_id', help='domain_id')
+  parser.add_option("-o", "--auth_domain_name", dest='auth_domain_name', help='The domain of the user used for API queries.')
+  parser.add_option("-d", "--user_domain_name", dest='user_domain_name', help='The domain in which the users to count are.')
 
   (options, args) = parser.parse_args()
 
@@ -125,7 +121,7 @@ def main():
     cred['password']   = options.password
     cred['project_id'] = options.project_id
     cred['project_name'] = options.project_name
-    cred['domain_id'] = options.domain_id
+    cred['domain_id'] = options.auth_domain_name
 
     openstack = oscred(**cred)
 
@@ -134,8 +130,8 @@ def main():
 
     total_number_of_vms = len(get_all_servers(nova))
     users_with_vms = len(set(get_vm_user_ids(nova)))
-    total_number_of_users = len(get_real_users(keystone))
-    csc_user_ids_with_vms = get_csc_user_ids_with_vms(nova, keystone)
+    total_number_of_users = len(get_real_users(keystone, options.user_domain_name))
+    csc_user_ids_with_vms = get_csc_user_ids_with_vms(nova, keystone, options.user_domain_name)
     num_vms_by_csc_users = len(csc_user_ids_with_vms)
     num_csc_users_with_vm = len(set(csc_user_ids_with_vms))
 
