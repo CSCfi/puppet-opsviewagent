@@ -12,7 +12,7 @@
 import os
 import time
 import sys
-import optparse
+import argparse
 
 from openstack_credentials import OpenStackCredentials as oscred
 
@@ -40,19 +40,17 @@ def get_real_users(keystone, user_domain_name="default"):
 
     return users
 
-def get_vm_user_ids(nova):
-    all_servers = get_all_servers(nova)
-    return map(lambda x: x.user_id, all_servers)
+def get_vm_user_ids(servers):
+    return map(lambda x: x.user_id, servers)
 
-def get_csc_user_ids(keystone, user_domain_name="default"):
-    users = get_real_users(keystone, user_domain_name)
+def get_csc_user_ids(users):
     csc_users = filter(lambda user: '@csc.fi' in user.email, users)
     return map(lambda x: x.id, csc_users)
 
-def get_csc_user_ids_with_vms(nova, keystone, user_domain_name="default"):
+def get_csc_user_ids_with_vms(servers, users):
     csc_vm_users = list()
-    vm_user_ids = get_vm_user_ids(nova)
-    csc_user_ids = get_csc_user_ids(keystone, user_domain_name)
+    vm_user_ids = get_vm_user_ids(servers)
+    csc_user_ids = get_csc_user_ids(users)
 
     for user_id in vm_user_ids:
         if user_id in csc_user_ids:
@@ -60,26 +58,51 @@ def get_csc_user_ids_with_vms(nova, keystone, user_domain_name="default"):
 
     return csc_vm_users
 
+def get_hypervisor_utilization(nova):
+    hv_stats = nova.hypervisor_stats.statistics()
+    used_mem = hv_stats.memory_mb_used
+    total_mem = hv_stats.memory_mb
+    hv_util_percent = (float(used_mem) / float(total_mem)) * 100
+
+    return (used_mem, total_mem, hv_util_percent)
+
 def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
   usage = '%prog { usagestats }'
-  parser = optparse.OptionParser(usage)
-  parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
-  parser.add_option("-u", "--username", dest='username', help='username')
-  parser.add_option("-p", "--password", dest='password', help='password')
-  parser.add_option("-i", "--project_id", dest='project_id', help='project id')
-  parser.add_option("-n", "--project_name", dest='project_name', help='project name')
-  parser.add_option("-o", "--auth_domain_name", dest='auth_domain_name', help='The domain of the user used for API queries.')
-  parser.add_option("-d", "--user_domain_name", dest='user_domain_name', help='The domain in which the users to count are.')
+  parser = argparse.ArgumentParser(description='Gather usage statistics from OpenStack.')
+  parser.add_argument("-a", "--auth_url",
+                      dest='auth_url', help='identity endpoint URL',
+                      required=True)
+  parser.add_argument("-u", "--username",
+                      dest='username', help='username',
+                      required=True)
+  parser.add_argument("-p", "--password",
+                      dest='password', help='password',
+                      required=True)
+  parser.add_argument("-i", "--project_id",
+                      dest='project_id', help='project id',
+                      required=True)
+  parser.add_argument("-n", "--project_name",
+                      dest='project_name', help='project name',
+                      required=True)
+  parser.add_argument("-o", "--auth_domain_name",
+                      dest='auth_domain_name',
+                      help="""The domain of the user used for API queries.
+                           Defaults to 'default'.""",
+                      required=False,
+                      default="default")
+  parser.add_argument("-d", "--user_domain_name",
+                      dest='user_domain_name',
+                      help="""The domain in which the users to count are.
+                           Defaults to 'default'.""",
+                      required=False,
+                      default="default")
 
-  (options, args) = parser.parse_args()
+  args = parser.parse_args()
 
-  if len(args) == 0:
-    sys.exit(NAGIOS_STATE_UNKNOWN, 'Command argument missing! Use --help.')
-
-  return (options, args)
+  return args
 
 def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
   '''
@@ -113,7 +136,7 @@ def main():
 
     results = dict()
 
-    (options, args) = parse_command_line()
+    options = parse_command_line()
 
     cred = dict()
     cred['auth_url']   = options.auth_url
@@ -128,18 +151,26 @@ def main():
     nova = openstack.get_nova()
     keystone = openstack.get_keystone()
 
-    total_number_of_vms = len(get_all_servers(nova))
-    users_with_vms = len(set(get_vm_user_ids(nova)))
-    total_number_of_users = len(get_real_users(keystone, options.user_domain_name))
-    csc_user_ids_with_vms = get_csc_user_ids_with_vms(nova, keystone, options.user_domain_name)
+    all_servers = get_all_servers(nova)
+    all_users = get_real_users(keystone, options.user_domain_name)
+
+    total_number_of_vms = len(all_servers)
+    users_with_vms = len(set(get_vm_user_ids(all_servers)))
+    total_number_of_users = len(all_users)
+    csc_user_ids_with_vms = get_csc_user_ids_with_vms(all_servers, all_users)
     num_vms_by_csc_users = len(csc_user_ids_with_vms)
     num_csc_users_with_vm = len(set(csc_user_ids_with_vms))
+
+    (used_mem, total_mem, hv_util_percent) = get_hypervisor_utilization(nova)
 
     results.update({"total_number_of_vms": total_number_of_vms,
                     "users_with_vms": users_with_vms,
                     "total_number_of_users": total_number_of_users,
                     "num_vms_by_csc_users": num_vms_by_csc_users,
-                    "num_csc_users_with_vm": num_csc_users_with_vm}
+                    "num_csc_users_with_vm": num_csc_users_with_vm,
+                    "hypervisor_used_mem": used_mem,
+                    "hypervisor_total_mem": total_mem,
+                    "hypervisor_util_percent": hv_util_percent}
                   )
 
     exit_with_stats(NAGIOS_STATE_OK, results)
