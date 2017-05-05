@@ -9,7 +9,8 @@ import os.path
 import sys
 import time
 import optparse
-import novaclient.v1_1.client as nova
+import novaclient.client as nova
+from novaclient.api_versions import APIVersion
 import cinderclient.exceptions
 import cinderclient.v1.client as cinder
 from neutronclient.neutron import client as neutronclient
@@ -187,7 +188,7 @@ class OSVolumeCheck(cinder.Client):
     finally:
       self.volume_destroy()
 
-class OSInstanceCheck(nova.Client):
+class OSInstanceCheck():
   '''
   Create instance and destroy the instance on OpenStack
   '''
@@ -196,37 +197,36 @@ class OSInstanceCheck(nova.Client):
   def __init__(self, options):
     self.options = options
     creds = OSCredentials(options).provide()
-    super(OSInstanceCheck, self).__init__(**creds)
-    self.authenticate()
+    self.nova = nova.Client(APIVersion("2.12"), **creds)
 
   def instance_status(self):
-    instance = self.servers.get(self.instance.id)
+    instance = self.nova.servers.get(self.instance.id)
     return instance._info['status']
   
   def instance_create(self):
-    image   = self.images.find(name=self.options.instance_image)
-    flavor  = self.flavors.find(name=self.options.instance_flavor)
-    network = self.networks.find(label=self.options.network_name)
-    self.instance = self.servers.create(name=self.options.instance_name,
+    image   = self.nova.images.find(name=self.options.instance_image)
+    flavor  = self.nova.flavors.find(name=self.options.instance_flavor)
+    network = self.nova.networks.find(label=self.options.network_name)
+    self.instance = self.nova.servers.create(name=self.options.instance_name,
               image=image.id, flavor=flavor.id,
               nics=[ {'net-id': network.id} ])
   
   def instance_destroy(self):
     if hasattr(self, 'instance'):
-      self.servers.delete(self.instance.id)
+      self.nova.servers.delete(self.instance.id)
   
   def instance_attach_floating_ip(self):
-    self.fip = self.floating_ips.create(self.options.fip_pool)
+    self.fip = self.nova.floating_ips.create(self.options.fip_pool)
     self.instance.add_floating_ip(self.fip)
     
   def instance_detach_floating_ip(self):
     if hasattr(self, 'fip'):
       self.instance.remove_floating_ip(self.fip.ip)
-      self.floating_ips.delete(self.fip)
+      self.nova.floating_ips.delete(self.fip)
 
   def floating_ip_delete(self):
     if hasattr(self, 'fip'):
-      self.floating_ips.delete(self.fip)
+      self.nova.floating_ips.delete(self.fip)
     
   def floating_ip_ping(self):
     count = self.options.ping_count
@@ -248,13 +248,13 @@ class OSInstanceCheck(nova.Client):
   
   def delete_orphaned_instances(self):
     search = dict(name = self.options.instance_name)
-    for instance in self.servers.list(search_opts=search):
+    for instance in self.nova.servers.list(search_opts=search):
       instance.delete()
 
   def delete_orphaned_floating_ips(self):
-    for tenant_ip in self.floating_ips.list():
-      self.floating_ips.delete(tenant_ip)
-    if len(self.floating_ips.list()) != 0:
+    for tenant_ip in self.nova.floating_ips.list():
+      self.nova.floating_ips.delete(tenant_ip)
+    if len(self.nova.floating_ips.list()) != 0:
       logging.warn('All floating IPs of instance creation test tenant were not deleted.') 
 
   def execute(self):
@@ -276,7 +276,7 @@ class OSInstanceCheck(nova.Client):
       self.floating_ip_delete()
       self.instance_destroy()
 
-class OSGhostInstanceCheck(nova.Client):
+class OSGhostInstanceCheck():
   '''
   Compare instances running on compute nodes with Nova's list
   '''
@@ -286,8 +286,7 @@ class OSGhostInstanceCheck(nova.Client):
   def __init__(self, options):
     self.options = options
     creds = OSCredentials(options).provide()
-    super(OSGhostInstanceCheck, self).__init__(**creds)
-    self.authenticate()
+    self.nova = nova.Client(APIVersion("2.12"), **creds)
 
   def get_nova_instance_list(self):
 
@@ -306,7 +305,7 @@ class OSGhostInstanceCheck(nova.Client):
                    'instance_name': False}
 
     # Get the array of Server objects
-    servers = self.servers.list(detailed=True,search_opts=search_opts)
+    servers = self.nova.servers.list(detailed=True,search_opts=search_opts)
 
     instances = []
 
@@ -324,7 +323,7 @@ class OSGhostInstanceCheck(nova.Client):
     return instances
 
   def get_nova_host_list(self):
-    services = self.services.list(binary='nova-compute')
+    services = self.nova.services.list(binary='nova-compute')
 
     hosts = []
 
@@ -504,7 +503,7 @@ class OSGhostVolumeCheck(cinder.Client):
     except:
       raise
 
-class OSGhostNodeCheck(nova.Client):
+class OSGhostNodeCheck():
   '''
   Checks for nodes which are enabled and down
   '''
@@ -514,11 +513,10 @@ class OSGhostNodeCheck(nova.Client):
   def __init__(self, options):
     self.options = options
     creds = OSCredentials(options).provide()
-    super(OSGhostNodeCheck, self).__init__(**creds)
-    self.authenticate()
+    self.nova = nova.Client(APIVersion("2.12"), **creds)
 
   def check_bad_hosts(self):
-    services = self.services.list()
+    services = self.nova.services.list()
 
     msgs = []
 
@@ -574,7 +572,6 @@ class OSCapacityCheck():
   '''
   options = dict()
   neutron = None
-  nova = None
 
   def __init__(self, options):
     self.options = options
@@ -590,8 +587,7 @@ class OSCapacityCheck():
                                                         endpoint_type='publicURL')
     self.neutron = neutronclient.Client('2.0', endpoint_url=neutron_endpoint,
                                         token=keystone.auth_token)
-    self.nova = nova.Client(**creds)
-    self.nova.authenticate()
+    self.nova = nova.Client(APIVersion("2.12"), **creds)
 
   def check_vlan_capacity(self):
     nets = self.neutron.list_networks()['networks']
