@@ -644,7 +644,7 @@ class OSCapacityCheck():
 
     SERVICE_TENANT_NAME="service"
     PUBLIC_NET_NAME="public"
-    public_network_id = self.neutron.list_networks(project_name=SERVICE_TENANT_NAME,
+    public_network_id = self.neutron.list_networks(tenant_id=SERVICE_TENANT_NAME,
                          name=PUBLIC_NET_NAME)['networks'][0]['id']
 
     # Our public IP's are used for routers in addition to instances so we must
