@@ -126,7 +126,7 @@ class OSCredentials(object):
       self.keystone_cred['tenant_name'] = os.environ['OS_TENANT_NAME']
       # Keystone v3 only entries
       self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
-      self.keystone_v3_cred['username']    = os.environ['OS_USERNAME']
+      self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
       self.keystone_v3_cred['password']    = os.environ['OS_PASSWORD']
       self.keystone_v3_cred['project_name'] = os.environ['OS_TENANT_NAME']
     except KeyError:
@@ -144,7 +144,7 @@ class OSCredentials(object):
     if options.tenant  : self.keystone_cred['tenant_name'] = options.tenant
     # Keystone v3 only entries
     if options.auth_url: self.keystone_v3_cred['auth_url']    = options.auth_url
-    if options.username: self.keystone_v3_cred['username']    = options.username
+    if options.username: self.keystone_v3_cred['user_id']    = options.username
     if options.password: self.keystone_v3_cred['password']    = options.password
     if options.tenant  : self.keystone_v3_cred['project_id'] = options.tenant
 
@@ -155,7 +155,7 @@ class OSCredentials(object):
     for key in ['auth_url', 'username', 'password', 'tenant_name']:
       if not key in self.keystone_cred:
         raise CredentialsMissingException(key=key)
-    for key in ['auth_url', 'username', 'password', 'project_id']:
+    for key in ['auth_url', 'user_id', 'password', 'project_id']:
       if not key in self.keystone_v3_cred:
         raise CredentialsMissingException(key=key)
   
@@ -841,11 +841,14 @@ class OSGlanceAvailability():
     self.glance = glanceclient.Client('2', session=sessionx)
 
   def get_glance_images(self):
-    vols = self.glance.images.list()
-    if LOCAL_DEBUG:
-      for i in vols:
-        print i
+    image_generator = self.glance.images.list()
+    # image_generator is a generator and is layz evaluated so the
+    # next is needed to acctually evaluate the image list command.
+    image_generator.next()
 
+    if LOCAL_DEBUG:
+      for i in image_generator:
+        i
   def execute(self):
     results = dict()
     try:
@@ -855,7 +858,9 @@ class OSGlanceAvailability():
 
 class OSHeatAvailability():
   '''
-  Check Heat API call length by using list volume
+  Check Heat API call length by using list heat stacks
+
+  TODO: Create this class, this does not work yet.
   '''
   options = dict()
 
@@ -864,12 +869,16 @@ class OSHeatAvailability():
     loader = loading.get_plugin_loader('password')
     auth = loader.load_from_options(**creds)
     sessionx = session.Session(auth=auth)
-    self.heat = heatclient.Client('1', session=sessionx)
+    if LOCAL_DEBUG:
+      print creds
+#    self.heat = heatclient.Client('1', session=sessionx)
 
   def get_heat_images(self):
     vols = self.heat.stacks.list()
+    vols.next()
 
   def execute(self):
+    return {'Needs_to_be_implemented': 'heat'}
     results = dict()
     try:
       self.get_heat_images()
@@ -884,23 +893,25 @@ class OSKeystoneAvailability():
 
   def __init__(self, options):
     creds = OSCredentials(options).provide_keystone_v3()
+    # This makes it work even if v2.0 is given
+    if '/v2.0' in creds['auth_url']:
+      str_index = creds['auth_url'].index(':50')
+      creds['auth_url'] = creds['auth_url'][:str_index] + ':5001/v3'
     if LOCAL_DEBUG:
       print creds
-    loader = loading.get_plugin_loader('password')
     auth = identity.v3.Password(**creds)
     sessionx = session.Session(auth=auth)
     self.keystone = keystoneclientv3.Client(session=sessionx)
 
   def get_keystone(self):
-    pass
     vols = self.keystone.users.list()
 
   def execute(self):
     results = dict()
-#    try:
-#      self.get_keystone()
-#    except:
-#      raise
+    try:
+      self.get_keystone()
+    except:
+      raise
 
 class OSMagnumAvailability():
 
