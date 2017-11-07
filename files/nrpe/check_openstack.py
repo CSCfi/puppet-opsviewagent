@@ -591,7 +591,11 @@ class OSCapacityCheck():
 
   def check_vlan_capacity(self):
     nets = self.neutron.list_networks()['networks']
-    vlans_in_use = len(nets)
+    vlans_in_use = 0
+    for net in nets:
+      # There are networks without segmentation_id
+      if net['provider:segmentation_id']:
+        vlans_in_use = vlans_in_use + 1
 
     # Need to find how many are available
 
