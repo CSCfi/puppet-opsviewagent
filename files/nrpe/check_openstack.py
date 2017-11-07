@@ -22,6 +22,18 @@ import logging
 import yaml
 import re
 
+# Imports for API availability checks
+import glanceclient
+from heatclient import client as heatclient
+from magnumclient import client as magnumclient
+from barbicanclient import client as barbicanclient
+import novaclient
+from keystoneauth1 import loading
+from keystoneauth1 import session
+from keystoneauth1 import identity
+from keystoneclient.v3 import client as keystoneclientv3
+
+LOCAL_DEBUG           = False
 NAGIOS_STATE_OK       = 0
 NAGIOS_STATE_WARNING  = 1
 NAGIOS_STATE_CRITICAL = 2
@@ -42,6 +54,7 @@ DEFAULT_NO_PING          = False
 STATUS_VOLUME_AVAILABLE  = 'available'
 STATUS_VOLUME_OK_DELETE  = ['available', 'error']
 STATUS_INSTANCE_ACTIVE   = 'ACTIVE'
+USE_SECONDS              = True
 
 time_start = 0 # Used for timing excecution
 
@@ -93,6 +106,7 @@ class OSCredentials(object):
   '''
   cred = dict()
   keystone_cred = dict()
+  keystone_v3_cred = dict()
   
   def __init__(self, options):
     self.environment_credentials()
@@ -110,6 +124,11 @@ class OSCredentials(object):
       self.keystone_cred['username']    = os.environ['OS_USERNAME']
       self.keystone_cred['password']    = os.environ['OS_PASSWORD']
       self.keystone_cred['tenant_name'] = os.environ['OS_TENANT_NAME']
+      # Keystone v3 only entries
+      self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
+      self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
+      self.keystone_v3_cred['password']    = os.environ['OS_PASSWORD']
+      self.keystone_v3_cred['project_name'] = os.environ['OS_TENANT_NAME']
     except KeyError:
       pass
 
@@ -123,6 +142,11 @@ class OSCredentials(object):
     if options.username: self.keystone_cred['username']    = options.username
     if options.password: self.keystone_cred['password']    = options.password
     if options.tenant  : self.keystone_cred['tenant_name'] = options.tenant
+    # Keystone v3 only entries
+    if options.auth_url: self.keystone_v3_cred['auth_url']    = options.auth_url
+    if options.username: self.keystone_v3_cred['user_id']    = options.username
+    if options.password: self.keystone_v3_cred['password']    = options.password
+    if options.tenant  : self.keystone_v3_cred['project_id'] = options.tenant
 
   def credentials_available(self):
     for key in ['auth_url', 'username', 'api_key', 'project_id']:
@@ -131,12 +155,18 @@ class OSCredentials(object):
     for key in ['auth_url', 'username', 'password', 'tenant_name']:
       if not key in self.keystone_cred:
         raise CredentialsMissingException(key=key)
+    for key in ['auth_url', 'user_id', 'password', 'project_id']:
+      if not key in self.keystone_v3_cred:
+        raise CredentialsMissingException(key=key)
   
   def provide(self):
     return self.cred
 
   def provide_keystone(self):
     return self.keystone_cred
+
+  def provide_keystone_v3(self):
+    return self.keystone_v3_cred
 
 class OSVolumeCheck(cinder.Client):
   '''
@@ -744,11 +774,232 @@ class OSCapacityCheck():
       raise
     return results
 
+class OSBarbicanAvailability():
+  '''
+  Check Barbicam API call length by using list
+  '''
+  options = dict()
+
+  def __init__(self, options):
+    creds = OSCredentials(options).provide_keystone()
+    loader = loading.get_plugin_loader('password')
+    auth = identity.V2Password(**creds)
+    sessionx = session.Session(auth=auth)
+    self.barbican = barbicanclient.Client(session=sessionx)
+
+
+  def get_barbican_images(self):
+    vols = self.barbican.secrets.list()
+    if LOCAL_DEBUG:
+      for i in vols:
+        print i
+
+  def execute(self):
+    results = dict()
+    try:
+      self.get_barbican_images()
+    except:
+      raise
+
+
+class OSCinderAvailability(cinder.Client):
+  '''
+  Check cinder API call length by using list volume
+  '''
+  options = dict()
+
+  def __init__(self, options):
+    self.options = options
+    creds = OSCredentials(options).provide()
+    super(OSCinderAvailability, self).__init__(**creds)
+    self.authenticate()
+
+  def get_cinder_volumes(self):
+    search_opts = { }
+    vols = self.volumes.list(search_opts=search_opts)
+    if LOCAL_DEBUG:
+      print vols
+
+  def execute(self):
+    results = dict()
+    try:
+      self.get_cinder_volumes()
+    except:
+      raise
+
+class OSGlanceAvailability():
+  '''
+  Check glance API call length by using list volume
+  '''
+  options = dict()
+
+  def __init__(self, options):
+    creds = OSCredentials(options).provide_keystone()
+    loader = loading.get_plugin_loader('password')
+    auth = loader.load_from_options(**creds)
+    sessionx = session.Session(auth=auth)
+    self.glance = glanceclient.Client('2', session=sessionx)
+
+  def get_glance_images(self):
+    image_generator = self.glance.images.list()
+    # image_generator is a generator and is layz evaluated so the
+    # next is needed to acctually evaluate the image list command.
+    image_generator.next()
+
+    if LOCAL_DEBUG:
+      for i in image_generator:
+        i
+  def execute(self):
+    results = dict()
+    try:
+      self.get_glance_images()
+    except:
+      raise
+
+class OSHeatAvailability():
+  '''
+  Check Heat API call length by using list heat stacks
+
+  TODO: Create this class, this does not work yet.
+  '''
+  options = dict()
+
+  def __init__(self, options):
+    creds = OSCredentials(options).provide_keystone()
+    loader = loading.get_plugin_loader('password')
+    auth = loader.load_from_options(**creds)
+    sessionx = session.Session(auth=auth)
+    if LOCAL_DEBUG:
+      print creds
+#    self.heat = heatclient.Client('1', session=sessionx)
+
+  def get_heat_images(self):
+    vols = self.heat.stacks.list()
+    vols.next()
+
+  def execute(self):
+    return {'Needs_to_be_implemented': 'heat'}
+    results = dict()
+    try:
+      self.get_heat_images()
+    except:
+      raise
+
+class OSKeystoneAvailability():
+  '''
+  Check Keystone API call length by creating a session
+  '''
+  options = dict()
+
+  def __init__(self, options):
+    creds = OSCredentials(options).provide_keystone_v3()
+    # This makes it work even if v2.0 is given
+    if '/v2.0' in creds['auth_url']:
+      str_index = creds['auth_url'].index(':50')
+      creds['auth_url'] = creds['auth_url'][:str_index] + ':5001/v3'
+    if LOCAL_DEBUG:
+      print creds
+    auth = identity.v3.Password(**creds)
+    sessionx = session.Session(auth=auth)
+    self.keystone = keystoneclientv3.Client(session=sessionx)
+
+  def get_keystone(self):
+    vols = self.keystone.users.list()
+
+  def execute(self):
+    results = dict()
+    try:
+      self.get_keystone()
+    except:
+      raise
+
+class OSMagnumAvailability():
+
+  '''
+  Check glance API call length by using list volume
+  '''
+  options = dict()
+
+  def __init__(self, options):
+    creds = OSCredentials(options).provide_keystone()
+    loader = loading.get_plugin_loader('password')
+    auth = loader.load_from_options(**creds)
+    sessionx = session.Session(auth=auth)
+    self.magnum = magnumclient.Client('1', session=sessionx)
+
+  def get_magnum_clusters(self):
+    vols = self.magnum.clusters.list()
+    if LOCAL_DEBUG:
+      for i in vols:
+        print i
+
+  def execute(self):
+    results = dict()
+    try:
+      self.get_magnum_clusters()
+    except:
+      raise
+
+class OSNeutronAvailability():
+  '''
+  Check Neutron API call length by using list networks
+  '''
+  options = dict()
+
+  def __init__(self, options):
+    creds = OSCredentials(options).provide_keystone()
+    loader = loading.get_plugin_loader('password')
+    auth = loader.load_from_options(**creds)
+    sessionx = session.Session(auth=auth)
+    self.neutron = neutronclient.Client('2', session=sessionx)
+
+  def get_neutron_images(self):
+    vols = self.neutron.list_networks()
+    if LOCAL_DEBUG:
+      for i in vols:
+        print i
+
+  def execute(self):
+    results = dict()
+    try:
+      self.get_neutron_images()
+    except:
+      raise
+
+class OSNovaAvailability():
+  '''
+  Check Nova API call length by using list volume
+  '''
+
+  options = dict()
+
+  def __init__(self, options):
+    creds = OSCredentials(options).provide_keystone()
+    loader = loading.get_plugin_loader('password')
+    auth = loader.load_from_options(**creds)
+    sessionx = session.Session(auth=auth)
+    self.nova = novaclient.client.Client('2', session=sessionx)
+
+
+  def get_nova_images(self):
+    vols = self.nova.servers.list()
+    if LOCAL_DEBUG:
+      for i in vols:
+        print i
+
+  def execute(self):
+    results = dict()
+    try:
+      self.get_nova_images()
+    except:
+      raise
+
+
 def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
-  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | capacity }'
+  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | capacity | barbican | cinder | glance | heat | keystone | magnum | neutron | nova }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
@@ -769,6 +1020,7 @@ def parse_command_line():
   parser.add_option("-s", "--volume_size", dest='volume_size', help='test volume size')
   parser.add_option("-w", "--wait", dest='wait', type='int', help='max seconds to wait for creation')
   parser.add_option("-z", "--no-ping", dest='no_ping', action='store_true', help='no ping test')
+  parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
   
   (options, args) = parser.parse_args()
 
@@ -794,6 +1046,9 @@ def parse_command_line():
     options.ping_interval = DEFAULT_PING_INTERVAL
   if not options.wait:
     options.wait = DEFAULT_MAX_WAIT_TIME
+  if options.milliseconds:
+    global USE_SECONDS
+    USE_SECONDS = False
 
   if len(args) == 0:
     sys.exit(NAGIOS_STATE_UNKNOWN, 'Command argument missing! Use --help.')
@@ -813,6 +1068,14 @@ def execute_check(options, args):
     'ghostvolume': OSVolumeErrorCheck,
     'ghostnodes': OSGhostNodeCheck,
     'capacity': OSCapacityCheck,
+    'barbican': OSBarbicanAvailability,
+    'cinder': OSCinderAvailability,
+    'glance': OSGlanceAvailability,
+    'heat':   OSHeatAvailability,
+    'magnum': OSMagnumAvailability,
+    'neutron': OSNeutronAvailability,
+    'nova': OSNovaAvailability,
+    'keystone': OSKeystoneAvailability,
   }
 
 
@@ -828,7 +1091,10 @@ def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
   nagios/opsview expects.
   '''
   time_end = time.time() - time_start
-  timing_info = {'seconds_used': int(time_end)}
+  if USE_SECONDS:
+    timing_info = {'seconds_used': int(time_end)}
+  else:
+    timing_info = {'milliseconds_used': int(1000 * time_end)}
 
   if stats:
     stats.update(timing_info)
