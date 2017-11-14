@@ -898,7 +898,7 @@ class OSKeystoneAvailability():
     self.keystone = keystoneclientv3.Client(session=sessionx)
 
   def get_keystone(self):
-    vols = self.keystone.project.list()
+    vols = self.keystone.projects.list()
 
   def execute(self):
     results = dict()
