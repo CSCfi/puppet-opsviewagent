@@ -128,7 +128,7 @@ class OSCredentials(object):
       self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
       self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
       self.keystone_v3_cred['password']    = os.environ['OS_PASSWORD']
-      self.keystone_v3_cred['project_name'] = os.environ['OS_TENANT_NAME']
+      self.keystone_v3_cred['project_id'] = os.environ['OS_TENANT_NAME']
     except KeyError:
       pass
 
@@ -894,18 +894,12 @@ class OSKeystoneAvailability():
 
   def __init__(self, options):
     creds = OSCredentials(options).provide_keystone_v3()
-    # This makes it work even if v2.0 is given
-    if '/v2.0' in creds['auth_url']:
-      str_index = creds['auth_url'].index(':50')
-      creds['auth_url'] = creds['auth_url'][:str_index] + ':5001/v3'
-    if LOCAL_DEBUG:
-      print creds
     auth = identity.v3.Password(**creds)
     sessionx = session.Session(auth=auth)
     self.keystone = keystoneclientv3.Client(session=sessionx)
 
   def get_keystone(self):
-    vols = self.keystone.users.list()
+    vols = self.keystone.projects.list()
 
   def execute(self):
     results = dict()
@@ -954,8 +948,8 @@ class OSNeutronAvailability():
     sessionx = session.Session(auth=auth)
     self.neutron = neutronclient.Client('2', session=sessionx)
 
-  def get_neutron_images(self):
-    vols = self.neutron.list_networks()
+  def get_neutron_subnetpools(self):
+    vols = self.neutron.list_subnetpools()
     if LOCAL_DEBUG:
       for i in vols:
         print i
@@ -963,7 +957,7 @@ class OSNeutronAvailability():
   def execute(self):
     results = dict()
     try:
-      self.get_neutron_images()
+      self.get_neutron_subnetpools()
     except:
       raise
 
