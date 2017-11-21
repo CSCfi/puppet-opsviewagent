@@ -640,11 +640,12 @@ class OSCapacityCheck():
     # The 'network_vlan_ranges' parameter looks like: 'default:80:89'
     # the 2nd number is the lower vlan id, the 3rd is the higher id
     # It can also look like 'default:80:89,default:65:75' so we loop over it.
+    # Also, adding 1 for each range because they are inclusive.
     vlan_ranges = config['network_vlan_ranges'].split(',')
     vlans_total = 0
     for vrange in vlan_ranges:
       vlan_range = vrange.split(':')
-      vlans_total = int(vlans_total) + (int(vlan_range[2]) - int(vlan_range[1]))
+      vlans_total = int(vlans_total) + (int(vlan_range[2]) - int(vlan_range[1])) + 1
 
     return { 'vlans_used': vlans_in_use, 'vlans_total': vlans_total }
 
