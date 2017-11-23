@@ -70,7 +70,7 @@ then
 fi
 
 START=$(date +%s)
-TOKEN=$(curl -i -H "Content-Type: application/json" -d '{ "auth": {"identity": {"methods": ["password"],"password": {"user": {"name": "'$OS_USERNAME'","domain": { "name": "users"},"password": "'$OS_PASSWORD'" }}}}}' "${OS_AUTH_URL}"/auth/tokens 2>&1 | grep token|awk '{print $5}'|grep -o '".*"' | sed -n 's/.*"\([^"]*\)".*/\1/p')
+TOKEN=$(curl -i -H "Content-Type: application/json" -d '{ "auth": {"identity": {"methods": ["password"],"password": {"user": {"name": "'$OS_USERNAME'","domain": { "name": "Default"},"password": "'$OS_PASSWORD'" }}}}}' "${OS_AUTH_URL}"/auth/tokens 2>&1 | grep token|awk '{print $5}'|grep -o '".*"' | sed -n 's/.*"\([^"]*\)".*/\1/p')
 
 END=$(date +%s)
 
