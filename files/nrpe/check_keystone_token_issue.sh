@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Keystone API monitoring script for Sensu
+# Keystone API monitoring script for Sensu/Nagios
 #
 # Copyright © 2013 eNovance <licensing@enovance.com>
 #
@@ -20,6 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Requirement: curl
+# Updated Darren Glynn 2017-11-27
 #
 
 # #RED
@@ -29,7 +30,6 @@ STATE_OK=0
 STATE_WARNING=1
 STATE_CRITICAL=2
 STATE_UNKNOWN=3
-STATE_DEPENDENT=4
 
 usage ()
 {
@@ -69,10 +69,10 @@ then
     exit $STATE_UNKNOWN
 fi
 
-START=$(date +%s)
+START=$(date +%s%3N)
 TOKEN=$(curl -i -H "Content-Type: application/json" -d '{ "auth": {"identity": {"methods": ["password"],"password": {"user": {"name": "'$OS_USERNAME'","domain": { "name": "Default"},"password": "'$OS_PASSWORD'" }}}}}' "${OS_AUTH_URL}"/auth/tokens 2>&1 | grep token|awk '{print $5}'|grep -o '".*"' | sed -n 's/.*"\([^"]*\)".*/\1/p')
 
-END=$(date +%s)
+END=$(date +%s%3N)
 
 TIME=$((END-START))
 
@@ -80,11 +80,11 @@ if [ -z "$TOKEN" ]; then
     echo "Unable to get a token, Keystone API is not responding"
     exit $STATE_CRITICAL
 else
-    if [ $TIME -gt 10 ]; then
-        echo "Got a token after 10 seconds, Keystone API is taking too long."
+    if [ $TIME -gt 10000 ]; then
+        echo "Got a token after $TIME milliseconds, Keystone API is taking too long.|token_issue_time_ms=$TIME"
         exit $STATE_WARNING
     else
-        echo "Got a token, Keystone API is working."
+        echo "Got a token after $TIME milliseconds, Keystone API is working normally.|token_issue_time_ms=$TIME"
         exit $STATE_OK
     fi
 fi
