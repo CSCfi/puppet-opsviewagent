@@ -20,6 +20,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Modified by Johan Guldmyr @ csc 2017
+#  -P projectname
+#  - output performance data
+#  - write state in output (CRITICAL vs OK)
+#  - fix block size to 3MiB instead of random
+
 set -e
 
 STATE_OK=0
@@ -35,13 +41,14 @@ usage ()
     echo " -A <url>         URL for obtaining an auth token"
     echo " -U <username>    Username to use to get an auth token"
     echo " -K <key>         Password to use ro get an auth token"
+    echo " -P <projectname> Project / tenant name"
     echo " -V <authversion> Version for authentication"
     echo " -c <container>   Container to upload to"
     echo " -s <maxsize>     Determine maximum file size in KB"
     echo "                  (default: 1024)"
 }
 
-while getopts 'hH:A:U:K:V:c:s:' OPTION
+while getopts 'hH:A:U:K:P:V:c:s:' OPTION
 do
     case $OPTION in
         h)
@@ -56,6 +63,9 @@ do
             ;;
         K)
             export OS_PASSWORD=$OPTARG
+            ;;
+        P)
+            export OS_PROJECT_NAME=$OPTARG
             ;;
         V)
             export ST_AUTH_VERSION=$OPTARG
@@ -91,28 +101,45 @@ delete_files ()
 trap delete_files EXIT
 
 TMPFILE=`mktemp`
-BLOCK_NUMBER=$(($RANDOM * $multi / 32767))
+#BLOCK_NUMBER=$(($RANDOM * $multi / 32767))
+# Set this to a fixed size under 4MiB as our CEPH uses 4MB chunks
+BLOCK_NUMBER=3072
 BLOCK_SIZE=1024
 dd if=/dev/urandom of=$TMPFILE count=$BLOCK_NUMBER bs=$BLOCK_SIZE >/dev/null 2>&1
 
 TMPFILE_TARGET=`mktemp`
 
+start_time="$(($(awk '/^now/ {print $3; exit}' /proc/timer_list)/1000000))"
+
+#upload_time_ms
+#download_time_ms
+#delete_time_ms
+#total_time_ms
+
 if ! KEY=$(swift upload "$container" "$TMPFILE" 2>/dev/null)
 then
-    echo "Unable to upload file"
+    echo "CRITICAL: Unable to upload file | upload_time_ms=0 download_time_ms=0 delete_time_ms=0 total_time_ms=0"
     exit $STATE_CRITICAL
 fi
+upload_time="$(($(awk '/^now/ {print $3; exit}' /proc/timer_list)/1000000))"
+diff_upload_time="$(($upload_time - $start_time))"
 
 if ! swift download "$container" "$KEY" -o "$TMPFILE_TARGET" >/dev/null 2>&1
 then
-    echo "File upload OK, but unable to download file"
+    echo "CRITICAL: File upload OK, but unable to download file | upload_time_ms=$diff_upload_time download_time_ms=0 total_time_ms=0 delete_time_ms=0"
     exit $STATE_CRITICAL
 fi
+download_time="$(($(awk '/^now/ {print $3; exit}' /proc/timer_list)/1000000))"
+diff_download_time="$(($download_time - $upload_time))"
 
 if ! swift delete "$container" "$KEY" >/dev/null 2>&1
 then
-    echo "File upload+download OK, but unable to delete uploaded file"
+    echo "CRITICAL: File upload+download OK, but unable to delete uploaded file | upload_time_ms=$diff_upload_time download_time_ms=$diff_download_time delete_time_ms=0 total_time_ms=0"
     exit $STATE_CRITICAL
 fi
 
-echo "Upload+download+delete of $(($BLOCK_NUMBER * $BLOCK_SIZE / 1024)) KiB file in container $container"
+end_time="$(($(awk '/^now/ {print $3; exit}' /proc/timer_list)/1000000))"
+diff_delete_time="$(($end_time - $download_time))"
+diff_time="$(($end_time - $start_time))"
+
+echo "OK Upload+download+delete of $(($BLOCK_NUMBER * $BLOCK_SIZE / 1024)) KiB file in container $container | upload_time_ms=$diff_upload_time download_time_ms=$diff_download_time delete_time_ms=$diff_delete_time total_time_ms=$diff_time"
