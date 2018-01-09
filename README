@@ -1,4 +1,7 @@
+[![Build Status](https://travis-ci.com/CSCfi/puppet-opsviewagent.svg?token=KEpY44314kezBxxvLxTR&branch=master)](https://travis-ci.com/CSCfi/puppet-opsviewagent)
+
 opsviewagent
+============
 
 This is the opsviewagent module.
 
