@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# check_crm_v0_7
+# check_crm_v0_8
 #
 # Copyright © 2013 Philip Garner, Sysnix Consultants Limited
 #
@@ -18,6 +18,7 @@
 # v0.7 01/09/2013 - In testing as still not fully tested.  Adds optional 
 #		    constraints check (Boris Wesslowski). Adds fail count 
 #		    threshold ( Zoran Bosnjak & Marko Hrastovec )
+# v0.8 01/09/2019 - Use sudo to run crm commands ( Johan Guldmyr )
 #
 # NOTES: Requires Perl 5.8 or higher & the Perl Module Nagios::Plugin
 
@@ -27,8 +28,8 @@ use Nagios::Plugin;
 
 # Lines below may need changing if crm_mon installed in a different location.
 
-my $crm_mon            = '/usr/sbin/crm_mon -1 -r -f';
-my $crm_configure_show = '/usr/sbin/crm configure show';
+my $crm_mon            = 'sudo /usr/sbin/crm_mon -1 -r -f';
+my $crm_configure_show = 'sudo /usr/sbin/crm configure show';
 
 our $np;
 setup_nagios_plugin();
