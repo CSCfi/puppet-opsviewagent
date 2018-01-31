@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Simply cout devices in output of lspci
+# Simply grep (and count) devices in output of lspci
 #
 # Usage: check_count_lspci.sh [-d device] [-w warning] [-c critical]
 #   -d, --device                What to grep for in lspci
-#   -w, --warning WARNING       Warning value (percent)
-#   -c, --critical CRITICAL     Critical value (percent)
+#   -w, --warning WARNING       Warning count
+#   -c, --critical CRITICAL     Critical count
 #   -H, --help                  Display this screen
 #
 # Written by Johan Guldmyr @ CSC 2018
@@ -51,8 +51,9 @@ if ! [ -x "$(command -v lspci)" ]; then
   exit 3
 fi
 
-output=$(lspci|grep $device|wc -l)
+output=$(lspci|grep -c $device)
 
+# Prune some supposedly bad characters out of the devicename
 metricname=$(echo $device|tr -cd '[[:alnum:]]._-')
 status="$output $device devices found | ${metricname}devices=$output"
 
