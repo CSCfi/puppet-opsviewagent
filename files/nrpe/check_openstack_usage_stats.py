@@ -15,6 +15,7 @@ import sys
 import argparse
 
 from openstack_credentials import OpenStackCredentials as oscred
+from novaclient.exceptions import NotFound as NovaNotFound
 
 NAGIOS_STATE_OK       = 0
 NAGIOS_STATE_WARNING  = 1
@@ -89,7 +90,11 @@ def get_number_of_flavors(nova):
 
   flavor_name_dict = dict()
   for flavor in flavor_id_dict:
-     name = nova.flavors.get(flavor)
+     # If the flavor have been modified the name will be missing.
+     try:
+       name = nova.flavors.get(flavor)
+     except NovaNotFound:
+       continue
      flavor_name_dict["flavor_" + str(name.name).replace(".", '-')] = flavor_id_dict[flavor]
   return flavor_name_dict
 
