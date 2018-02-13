@@ -85,10 +85,7 @@ def get_number_of_flavors(nova):
   flavor_id_dict = dict()
   for server in servers:
     flavor = server.flavor['id']
-    if flavor in flavor_id_dict:
-      flavor_id_dict[flavor] = flavor_id_dict[flavor] + 1
-    else:
-      flavor_id_dict[flavor] = 1
+    flavor_id_dict[flavor] = flavor_id_dict.get(flavor, 0) + 1
 
   flavor_name_dict = dict()
   for flavor in flavor_id_dict:
