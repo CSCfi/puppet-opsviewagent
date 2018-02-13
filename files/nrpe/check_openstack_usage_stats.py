@@ -205,7 +205,7 @@ def main():
                     "num_csc_users_with_vm": num_csc_users_with_vm,
                     "hypervisor_used_mem": used_mem,
                     "hypervisor_total_mem": total_mem,
-                    "hypervisor_util_percent": hv_util_percent},
+                    "hypervisor_util_percent": hv_util_percent}
                   )
 
     exit_with_stats(NAGIOS_STATE_OK, results)
