@@ -67,17 +67,8 @@ def get_hypervisor_utilization(nova):
 
     return (used_mem, total_mem, hv_util_percent)
 
-def get_number_of_flavors(nova):
+def get_per_flavor_active_vm_count(nova):
   search_opts = {'all_tenants': True,
-                 'reservation_id': None,
-                 'ip': None,
-                 'ip6': None,
-                 'name': None,
-                 'image': None,
-                 'flavor': None,
-                 'status': None,
-                 'tenant_id': None,
-                 'host': None,
                  'deleted': False,
                  'instance_name': False}
 
@@ -95,7 +86,7 @@ def get_number_of_flavors(nova):
        name = nova.flavors.get(flavor)
      except NovaNotFound:
        continue
-     flavor_name_dict["flavor_" + str(name.name).replace(".", '-')] = flavor_id_dict[flavor]
+     flavor_name_dict["num_vms_" + str(name.name).replace(".", '_')] = flavor_id_dict[flavor]
   return flavor_name_dict
 
 
@@ -197,7 +188,7 @@ def main():
 
     (used_mem, total_mem, hv_util_percent) = get_hypervisor_utilization(nova)
 
-    results = get_number_of_flavors(nova)
+    results = get_per_flavor_active_vm_count(nova)
     results.update({"total_number_of_vms": total_number_of_vms,
                     "users_with_vms": users_with_vms,
                     "total_number_of_users": total_number_of_users,
