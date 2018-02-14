@@ -15,6 +15,7 @@ import sys
 import argparse
 
 from openstack_credentials import OpenStackCredentials as oscred
+from novaclient.exceptions import NotFound as NovaNotFound
 
 NAGIOS_STATE_OK       = 0
 NAGIOS_STATE_WARNING  = 1
@@ -65,6 +66,30 @@ def get_hypervisor_utilization(nova):
     hv_util_percent = (float(used_mem) / float(total_mem)) * 100
 
     return (used_mem, total_mem, hv_util_percent)
+
+def get_per_flavor_active_vm_count(nova):
+  search_opts = {'all_tenants': True,
+                 'deleted': False,
+                 'instance_name': False}
+
+  # Get the array of Server objects
+  servers = nova.servers.list(detailed=True,search_opts=search_opts)
+  flavor_id_dict = dict()
+  for server in servers:
+    flavor = server.flavor['id']
+    flavor_id_dict[flavor] = flavor_id_dict.get(flavor, 0) + 1
+
+  flavor_name_dict = dict()
+  for flavor in flavor_id_dict:
+     # If the flavor have been modified the name will be missing.
+     try:
+       name = nova.flavors.get(flavor)
+     except NovaNotFound:
+       continue
+     flavor_name_dict["num_vms_" + str(name.name).replace(".", '_')] = flavor_id_dict[flavor]
+  return flavor_name_dict
+
+
 
 def parse_command_line():
   '''
@@ -163,6 +188,7 @@ def main():
 
     (used_mem, total_mem, hv_util_percent) = get_hypervisor_utilization(nova)
 
+    results = get_per_flavor_active_vm_count(nova)
     results.update({"total_number_of_vms": total_number_of_vms,
                     "users_with_vms": users_with_vms,
                     "total_number_of_users": total_number_of_users,
