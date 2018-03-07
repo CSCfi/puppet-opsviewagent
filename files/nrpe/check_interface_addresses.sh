@@ -53,12 +53,12 @@ shift "$((OPTIND-1))"
 
 if [ "x" == "x$IF_NAME" ]; then
   echo "option -i is required"
-  exit
+  exit ${STATE_WARNING}
 fi
 
 if [ "x" == "x$MULTI_ADDRESS" ]; then
   echo "option -a is required"
-  exit
+  exit ${STATE_WARNING}
 fi
 
 IF_HAS_UP=$(ip -4 -o link show ${IF_NAME}|grep -Po "<.*,UP,.*>")
@@ -79,4 +79,5 @@ for IF_CHECK_ADDR in "${MULTI_ADDRESS[@]}"; do
   fi
 done
 
+echo "OK"
 exit ${STATE_OK}
