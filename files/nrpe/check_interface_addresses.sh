@@ -79,5 +79,5 @@ for IF_CHECK_ADDR in "${MULTI_ADDRESS[@]}"; do
   fi
 done
 
-echo "OK"
+echo "OK | rc=${STATE_OK}"
 exit ${STATE_OK}
