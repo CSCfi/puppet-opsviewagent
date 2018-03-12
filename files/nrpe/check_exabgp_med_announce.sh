@@ -10,7 +10,7 @@ STATE_WARNING=1
 STATE_CRITICAL=2
 STATE_UNKNOWN=3
 
-# Opportunism.
+# Opportunism
 TAIL_LINES=1000
 
 usage ()
@@ -65,21 +65,24 @@ fi
 #   exit ${STATE_WARNING}
 # fi
 
-LATEST_MED_STATUS=$(tail -${TAIL_LINES} ${LOG_FILE_NAME} | perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -1)
-SERVICE_IP=$(echo "$LATEST_MED_STATUS" | awk '{print $1}')
-MED_VALUE=$(echo "$LATEST_MED_STATUS" | awk '{print $2}')
-#COMMUNITY_VALUE=echo "$LATEST_MED_STATUS" | awk '{print $3}'
-
-if [ -z "${SERVICE_IP}" ]; then
-  echo "No Service IP information found!"
-  exit ${STATE_CRITICAL}
+RETURN_METRICS=""
+MED_STATUSES_RAW=$(tail -${TAIL_LINES} ${LOG_FILE_NAME}| perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -10 | sort | uniq)
+                                                                                                                  #^^^^^^^^^^ more opportunism
+if [ ! -z "${MED_STATUSES_RAW}" ]; then
+  while read -r line; do
+    SERVICE_IP=$(echo "$line"|awk '{print $1}')
+    MED_VALUE=$(echo "$line"|awk '{print $2}')
+    if [ -z "${SERVICE_IP}" ]; then
+      echo "No Service IP information found!"
+      exit ${STATE_CRITICAL}
+    fi
+    if [ -z "${MED_VALUE}" ]; then
+      echo "No MED information found!"
+      exit ${STATE_WARNING}
+    fi
+    RETURN_METRICS+="${SERVICE_IP}_MED=${MED_VALUE} "
+  done <<< "$MED_STATUSES_RAW"
 fi
 
-if [ -z "${MED_VALUE}" ]; then
-  echo "No MED information found!"
-  exit ${STATE_CRITICAL}
-fi
-
-#echo "OK | ${SERVICE_IP}_MED=${MED_VALUE};; ${SERVICE_IP}_CTY=${COMMUNITY_VALUE};;"
-echo "OK | ${SERVICE_IP}_MED=${MED_VALUE};;"
+echo "OK | ${RETURN_METRICS}"
 exit ${STATE_OK}
