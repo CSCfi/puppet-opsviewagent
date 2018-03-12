@@ -57,7 +57,7 @@ if [ "x" == "x$LOG_FILE_NAME" ]; then
 fi
 
 RETURN_METRICS=""
-MED_STATUSES_RAW=$(tail -${TAIL_LINES} ${LOG_FILE_NAME}| perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -10 | sort | uniq)
+MED_STATUSES_RAW=$(/bin/tail -${TAIL_LINES} ${LOG_FILE_NAME}| perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -10 | sort | uniq)
                                                                                                                   #^^^^^^^^^^ more opportunism
 if [ -z "${MED_STATUSES_RAW// }" ]; then
   echo "Did not get any data when trying to read ${LOG_FILE_NAME}."
