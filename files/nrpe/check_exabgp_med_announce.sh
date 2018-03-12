@@ -18,7 +18,6 @@ usage ()
     echo "Usage: $0 [OPTIONS]"
     echo " -h               Get help"
     echo " -f               Log file to inspect"
-    # echo " -a <address>     Address whose MED to check"
 }
 
 if (($# == 0)); then
@@ -36,9 +35,6 @@ do
         f)
             LOG_FILE_NAME=$OPTARG
             ;;
-        # a)
-        #     CHECK_ADDRESS=$OPTARG
-        #     ;;
         \?)
             usage
             exit 1
@@ -60,11 +56,6 @@ if [ "x" == "x$LOG_FILE_NAME" ]; then
   exit ${STATE_WARNING}
 fi
 
-# if [ "x" == "x$MULTI_ADDRESS" ]; then
-#   echo "option -a is required"
-#   exit ${STATE_WARNING}
-# fi
-
 RETURN_METRICS=""
 MED_STATUSES_RAW=$(tail -${TAIL_LINES} ${LOG_FILE_NAME}| perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -10 | sort | uniq)
                                                                                                                   #^^^^^^^^^^ more opportunism
@@ -80,7 +71,8 @@ if [ ! -z "${MED_STATUSES_RAW}" ]; then
       echo "No MED information found!"
       exit ${STATE_WARNING}
     fi
-    RETURN_METRICS+="${SERVICE_IP}_MED=${MED_VALUE} "
+    SERVICE_IP_NODOTS="$(echo ${SERVICE_IP}|sed 's/\./_/g')"
+    RETURN_METRICS+="${SERVICE_IP_NODOTS}_MED=${MED_VALUE} "
   done <<< "$MED_STATUSES_RAW"
 fi
 
