@@ -66,16 +66,16 @@ fi
 # fi
 
 LATEST_MED_STATUS=$(tail -${TAIL_LINES} ${LOG_FILE_NAME} | perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -1)
-SERVICE_IP=echo "$LATEST_MED_STATUS" | awk '{print $1}'
-MED_VALUE=echo "$LATEST_MED_STATUS" | awk '{print $2}'
-COMMUNITY_VALUE=echo "$LATEST_MED_STATUS" | awk '{print $3}'
+SERVICE_IP=$(echo "$LATEST_MED_STATUS" | awk '{print $1}')
+MED_VALUE=$(echo "$LATEST_MED_STATUS" | awk '{print $2}')
+#COMMUNITY_VALUE=echo "$LATEST_MED_STATUS" | awk '{print $3}'
 
-if [ -z "${SERVICE_IP}"]; then
+if [ -z "${SERVICE_IP}" ]; then
   echo "No Service IP information found!"
   exit ${STATE_CRITICAL}
 fi
 
-if [ -z "${MED_VALUE}"]; then
+if [ -z "${MED_VALUE}" ]; then
   echo "No MED information found!"
   exit ${STATE_CRITICAL}
 fi
