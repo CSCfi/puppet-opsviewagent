@@ -59,21 +59,29 @@ fi
 RETURN_METRICS=""
 MED_STATUSES_RAW=$(tail -${TAIL_LINES} ${LOG_FILE_NAME}| perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -10 | sort | uniq)
                                                                                                                   #^^^^^^^^^^ more opportunism
-if [ ! -z "${MED_STATUSES_RAW}" ]; then
-  while read -r line; do
-    SERVICE_IP=$(echo "$line"|awk '{print $1}')
-    MED_VALUE=$(echo "$line"|awk '{print $2}')
-    if [ -z "${SERVICE_IP}" ]; then
-      echo "No Service IP information found!"
-      exit ${STATE_CRITICAL}
-    fi
-    if [ -z "${MED_VALUE}" ]; then
-      echo "No MED information found!"
-      exit ${STATE_WARNING}
-    fi
-    SERVICE_IP_NODOTS="$(echo ${SERVICE_IP}|sed 's/\./_/g')"
-    RETURN_METRICS+="${SERVICE_IP_NODOTS}_MED=${MED_VALUE} "
-  done <<< "$MED_STATUSES_RAW"
+if [ -z "${MED_STATUSES_RAW// }" ]; then
+  echo "Did not get any data when trying to read ${LOG_FILE_NAME}."
+  exit ${STATE_CRITICAL}
+fi
+
+while read -r line; do
+  SERVICE_IP=$(echo "$line"|awk '{print $1}')
+  MED_VALUE=$(echo "$line"|awk '{print $2}')
+  if [ -z "${SERVICE_IP}" ]; then
+    echo "No Service IP information found!"
+    exit ${STATE_CRITICAL}
+  fi
+  if [ -z "${MED_VALUE}" ]; then
+    echo "No MED information found!"
+    exit ${STATE_WARNING}
+  fi
+  SERVICE_IP_NODOTS="$(echo ${SERVICE_IP}|sed 's/\./_/g')"
+  RETURN_METRICS+="${SERVICE_IP_NODOTS}_MED=${MED_VALUE} "
+done <<< "$MED_STATUSES_RAW"
+
+if [ -z "${RETURN_METRICS}" ]; then
+  echo "No metrics parsed from ${LOG_FILE_NAME}."
+  exit ${STATE_CRITICAL}
 fi
 
 echo "OK | ${RETURN_METRICS}"
