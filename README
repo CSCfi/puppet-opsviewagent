@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/CSCfi/puppet-opsviewagent.svg?token=KEpY44314kezBxxvLxTR&branch=master)](https://travis-ci.com/CSCfi/puppet-opsviewagent)
+[![Build Status](https://travis-ci.org/CSCfi/puppet-opsviewagent.svg?branch=master)](https://travis-ci.org/CSCfi/puppet-opsviewagent)
 
 opsviewagent
 ============
@@ -16,4 +16,4 @@ Contact
 Support
 -------
 
-Please log tickets and issues at our [Projects site](http://projects.example.com)
+Please log tickets and issues here on Github

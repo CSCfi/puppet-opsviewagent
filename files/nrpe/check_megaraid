@@ -28,7 +28,8 @@
 # Code for correct RAID level reporting contributed by Frode Nordahl, 2009/01/12.
 #
 # $Author: delgado $
-# $Revision: #12 $ $Date: 2010/10/18 $
+# $Revision: #13 $ $Date: 2018/03/14 $
+# Modified 2018/03/14 by jguldmyr to print errorcount as performancedata
 
 use strict;
 use Getopt::Std;
@@ -241,6 +242,8 @@ if ( $hotspares ) {
 		$result .= "Hotspare(s):$hotsparecount";
 	}
 }
+
+$result .= "| errors=$errorcount";
 
 exitreport($status, $result);
 
