@@ -732,7 +732,7 @@ class OSCapacityCheck():
         start_fourth_octet = int(start_match.group(4))
         end_third_octet  = int(end_match.group(3))
         end_fourth_octet = int(end_match.group(4))
-        ips_total += end_fourth_octet - start_fourth_octet
+        ips_total += (end_third_octet - start_third_octet) * 256 + end_fourth_octet - start_fourth_octet
 
     return { 'ips_total': ips_total, 'ips_allocated': allocated_ips,
               'ips_allocated_not_assigned': allocated_not_assigned,
