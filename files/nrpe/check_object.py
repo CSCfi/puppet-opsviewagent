@@ -16,6 +16,9 @@ import logging
 import yaml
 import re
 
+import subprocess
+import json
+
 import urllib
 
 # Imports for API availability checks
@@ -33,10 +36,8 @@ NAGIOS_STATE_WARNING  = 1
 NAGIOS_STATE_CRITICAL = 2
 NAGIOS_STATE_UNKNOWN  = 3
 
-DEFAULT_MAX_WAIT_TIME    = 90
-DEFAULT_PING_COUNT       = 5
-DEFAULT_PING_INTERVAL    = 2
-DEFAULT_NO_PING          = False
+DEFAULT_BUCKET_NAME = "nagiostestbucket4"
+DEFAULT_DOMAIN_NAME = "default"
 
 USE_SECONDS              = True
 
@@ -114,6 +115,7 @@ class OSCredentials(object):
 class OSSwiftAvailability():
   '''
   Check Swift API call length by listing containers with get_accounts
+  Only works with Keystone Auth URL v2.0
   '''
   options = dict()
 
@@ -169,12 +171,21 @@ class S3PublicAvailability():
 
   def list_public_s3_objects(self):
     """ read a public S3 URL with urllib
+    This does not create a public bucket if one does not exist.
+    This fails if the bucket does not exist or if it's private.
     """
     _response = urllib.urlopen(self.options.s3_bucket_url)
     _html = _response.read()
 
     if LOCAL_DEBUG:
       print _html
+
+    try:
+      assert "AccessDenied" not in _html
+      assert "NoSuchBucket" not in _html
+    except:
+      print "ERROR: AccessDenied or NoSuchBucket for %s" % self.options.s3_bucket_url
+      raise
 
   def execute(self):
     try:
@@ -186,12 +197,30 @@ class S3PrivateAvailability():
   '''
   Check S3 API call length by listing private containers with get_accounts
   http://boto.cloudhackers.com/en/latest/s3_tut.html
+  Only works with Keystone Auth URL v3
   '''
   options = dict()
 
   def __init__(self, options):
-    _access_key = options.s3_access_key
-    _secret_key = options.s3_secret_key
+
+  # First we try to list the ec2 credentials
+    try:
+      res = json.loads(subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "list", "-f", "json"]))
+      res[0]['Access']
+  # If they don't exist we create some
+    except:
+      try:
+        subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "create"])
+      except:
+        # If we can't create we exit so as to not print passwords to stdout
+        print "Could not create ec2 credentials"
+        sys.exit(NAGIOS_STATE_UNKNOWN)
+      res = json.loads(subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "list", "-f", "json"]))
+
+    if LOCAL_DEBUG:
+      print res
+    _access_key = res[0]['Access']
+    _secret_key = res[0]['Secret']
     _s3_host = options.s3_host
 
     self.conn = S3Connection(aws_access_key_id=_access_key, aws_secret_access_key=_secret_key, host=_s3_host)
@@ -211,23 +240,43 @@ class S3PrivateAvailability():
 class S3FunctionalityTest():
   '''
   Functionality Test of an S3 Bucket
+  Only works with Keystone Auth URL v3
   '''
   options = dict()
 
   def __init__(self, options):
-    _access_key = options.s3_access_key
-    _secret_key = options.s3_secret_key
+  # First we try to list the ec2 credentials
+
+    try:
+      res = json.loads(subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "list", "-f", "json"]))
+      res[0]['Access']
+  # If they don't exist we create some
+    except:
+      try:
+        subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "create"], stderr=subprocess.STDOUT)
+      except:
+        print "Could not create EC2 credentials"
+        sys.exit(NAGIOS_STATE_UNKNOWN)
+      res = json.loads(subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "list", "-f", "json"]))
+
+    if LOCAL_DEBUG:
+      print res
+    _access_key = res[0]['Access']
+    _secret_key = res[0]['Secret']
     _s3_host = options.s3_host
 
     self.conn = S3Connection(aws_access_key_id=_access_key, aws_secret_access_key=_secret_key, host=_s3_host)
-    self.b = self.conn.get_bucket('nagiostestbucket1')
+    try:
+      self.b = self.conn.get_bucket(DEFAULT_BUCKET_NAME)
+    except:
+      self.b = self.conn.create_bucket(DEFAULT_BUCKET_NAME)
     self.k = Key(self.b)
-    self.k.key = 'nagiostest1'
+    self.k.key = 'nagiostest3'
 
   def s3_create_bucket(self):
     """ create a bucket, does not fail if it exists
     """
-    self.conn.create_bucket('nagiostestbucket1')
+    self.conn.create_bucket(DEFAULT_BUCKET_NAME)
 
   def s3_store_data(self):
     """ store a 3MB object in the bucket
