@@ -722,7 +722,7 @@ class OSCapacityCheck():
     public_network = self.neutron.show_network(public_network_id)
     public_subnets = public_network[u'network']['subnets']
 
-    # Count the number of ip's in each subnet's DHCP allocation pool
+    # Count the number of ip's in each public subnet
     for subnet in public_subnets:
       sn = self.neutron.show_subnet(subnet)
       start_match = p.match(sn['subnet']['allocation_pools'][0]['start'])
