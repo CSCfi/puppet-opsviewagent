@@ -282,10 +282,12 @@ class S3FunctionalityTest():
     """ store a 3MB object in the bucket
     """
 
-    if not os.path.exists("3MBFILE"):
-      with open("3MBFILE", "wb") as out:
+    USERHOMEDIR = os.path.expanduser('~')
+    TESTFILEPATH = "%s/3MBFILE" % USERHOMEDIR
+    if not os.path.exists(TESTFILEPATH):
+      with open(TESTFILEPATH, "wb") as out:
           out.truncate(1024 * 1024 * 3)
-    self.k.set_contents_from_filename("3MBFILE")
+    self.k.set_contents_from_filename(TESTFILEPATH)
 
   def s3_read_data(self):
     """ read object from bucket
