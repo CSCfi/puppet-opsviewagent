@@ -67,6 +67,12 @@ def get_hypervisor_utilization(nova):
 
     return (used_mem, total_mem, hv_util_percent)
 
+def get_cinder_usage(cinder):
+  search_opts = {'all_tenants': '1'}
+  vols = cinder.volumes.list(search_opts=search_opts)
+  cinder_usage_gb = reduce(lambda x, y: x + y.size, [0] + vols)
+  return cinder_usage_gb
+
 def get_per_flavor_active_vm_count(nova):
   search_opts = {'all_tenants': True,
                  'deleted': False,
@@ -175,7 +181,8 @@ def main():
 
     nova = openstack.get_nova()
     keystone = openstack.get_keystone()
-
+    cinder = openstack.get_cinder()
+    get_total_cinder_usage = get_cinder_usage(cinder)
     all_servers = get_all_servers(nova)
     all_users = get_real_users(keystone, options.user_domain_name)
 
@@ -196,8 +203,9 @@ def main():
                     "num_csc_users_with_vm": num_csc_users_with_vm,
                     "hypervisor_used_mem": used_mem,
                     "hypervisor_total_mem": total_mem,
-                    "hypervisor_util_percent": hv_util_percent}
-                  )
+                    "hypervisor_util_percent": hv_util_percent,
+                    "cinder_total_usage_gb": get_total_cinder_usage,
+                   })
 
     exit_with_stats(NAGIOS_STATE_OK, results)
 
