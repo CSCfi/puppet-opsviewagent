@@ -6,8 +6,8 @@ define opsviewagent::nrpe_script(
   file { $name:
     path    => "${opsviewagent::nrpe_local_script_path}/${name}",
     source  => $script_source,
-    owner   => 'nagios',
-    group   => 'nagios',
+    owner   => "${opsviewagent::nagios_user}",
+    group   => "${opsviewagent::nagios_user}",
     mode    => 550,
   }
 }

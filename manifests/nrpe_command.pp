@@ -16,8 +16,8 @@ define opsviewagent::nrpe_command(
     file { $name:
       path    => "${opsviewagent::nrpe_local_configs_path}/${name}.cfg",
       content => "command[${name}]=${command} ${script_arguments}\n",
-      owner   => 'nagios',
-      group   => 'nagios',
+      owner   => "${opsviewagent::nagios_user}",
+      group   => "${opsviewagent::nagios_user}",
       mode    => '0600',
     }
   }
@@ -25,13 +25,13 @@ define opsviewagent::nrpe_command(
     file { $name:
       path    => "${opsviewagent::nrpe_local_configs_path}/${name}.cfg",
       content => "command[${name}]=sudo ${command} ${script_arguments}\n",
-      owner   => 'nagios',
-      group   => 'nagios',
+      owner   => "${opsviewagent::nagios_user}",
+      group   => "${opsviewagent::nagios_user}",
       mode    => '0600',
     }
 
     sudo::conf { $name:
-      content  => "Defaults !requiretty\nnagios ALL=(ALL) NOPASSWD: ${command}\n",
+      content  => "Defaults !requiretty\n${opsviewagent::nagios_user} ALL=(ALL) NOPASSWD: ${command}\n",
     }
   }
 }

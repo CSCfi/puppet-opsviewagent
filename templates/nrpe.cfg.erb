@@ -129,27 +129,25 @@ allow_weak_random_seed=0
 #
 
 # Opsview checks
-command[check_users]=/usr/local/nagios/libexec/check_users $ARG1$
-command[check_load]=/usr/local/nagios/libexec/check_load $ARG1$
-command[check_disk]=/usr/local/nagios/libexec/check_disk $ARG1$
-command[check_swap]=/usr/local/nagios/libexec/check_swap $ARG1$
-command[check_procs]=/usr/local/nagios/libexec/check_procs $ARG1$
-command[check_memory]=/usr/local/nagios/libexec/check_memory $ARG1$
-command[check_file_age]=/usr/local/nagios/libexec/check_file_age $ARG1$
-command[check_dir_age]=/usr/local/nagios/libexec/check_dir_age $ARG1$
-command[check_mailq]=/usr/local/nagios/libexec/check_mailq $ARG1$
-command[check_hpjd]=/usr/local/nagios/libexec/check_hpjd $ARG1$
-command[check_ntp]=/usr/local/nagios/libexec/check_ntp $ARG1$
-command[check_ntp_peer]=/usr/local/nagios/libexec/check_ntp_peer $ARG1$
-command[check_ntp_time]=/usr/local/nagios/libexec/check_ntp_time $ARG1$
-command[check_snmp]=/usr/local/nagios/libexec/check_snmp $ARG1$
-command[check_time]=/usr/local/nagios/libexec/check_time $ARG1$
-command[check_tcp]=/usr/local/nagios/libexec/check_tcp $ARG1$
-command[check_cluster]=/usr/local/nagios/libexec/check_cluster $ARG1$
-command[check_ide_smart]=/usr/local/nagios/libexec/check_ide_smart $ARG1$
-command[check_postgres]=/usr/local/nagios/libexec/check_postgres $ARG1$
-command[check_raid]=/usr/local/nagios/libexec/check_raid $ARG1$
-command[check_time_skew]=/usr/local/nagios/libexec/check_time_skew $ARG1$
+command[check_users]=/usr/lib64/nagios/plugins/check_users $ARG1$
+command[check_load]=/usr/lib64/nagios/plugins/check_load $ARG1$
+command[check_disk]=/usr/lib64/nagios/plugins/check_disk $ARG1$
+command[check_swap]=/usr/lib64/nagios/plugins/check_swap $ARG1$
+command[check_procs]=/usr/lib64/nagios/plugins/check_procs $ARG1$
+command[check_memory]=/usr/lib64/nagios/plugins/check_memory $ARG1$
+command[check_file_age]=/usr/lib64/nagios/plugins/check_file_age $ARG1$
+command[check_dir_age]=/usr/lib64/nagios/plugins/check_dir_age $ARG1$
+command[check_mailq]=/usr/lib64/nagios/plugins/check_mailq $ARG1$
+command[check_ntp]=/usr/lib64/nagios/plugins/check_ntp $ARG1$
+command[check_ntp_peer]=/usr/lib64/nagios/plugins/check_ntp_peer $ARG1$
+command[check_ntp_time]=/usr/lib64/nagios/plugins/check_ntp_time $ARG1$
+command[check_snmp]=/usr/lib64/nagios/plugins/check_snmp $ARG1$
+command[check_time]=/usr/lib64/nagios/plugins/check_time $ARG1$
+command[check_tcp]=/usr/lib64/nagios/plugins/check_tcp $ARG1$
+command[check_ide_smart]=/usr/lib64/nagios/plugins/check_ide_smart $ARG1$
+command[check_postgres]=/usr/lib64/nagios/plugins/check_postgres $ARG1$
+command[check_raid]=/usr/lib64/nagios/plugins/check_raid $ARG1$
+command[check_time_skew]=/usr/lib64/nagios/plugins/check_time_skew $ARG1$
 command[check_cpu]=<%= @nrpe_local_script_path %>/check_cpu $ARG1$
 
 # INCLUDE CONFIG DIRECTORY
