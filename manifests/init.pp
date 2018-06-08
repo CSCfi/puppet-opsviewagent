@@ -40,12 +40,15 @@ class opsviewagent (
   $nrpe_allowed_net,
   $nrpe_port = '5666',
   $nrpe_local_script_path = '/usr/local/nagios/libexec/nrpe_local',
-  $nrpe_local_configs_path = '/usr/local/nagios/etc/nrpe_local',
+  $nrpe_local_configs_path = '/etc/nrpe.d',
+  $nrpe_cfg_override_configs_path = '/etc/nrpe.d/override.cfg',
   $command_timeout = 50,
   $manage_firewall = true,
-  $nagios_user = 'nagios',
+  $nagios_user = 'nrpe',
   $nagios_public_ssh_key = undef,
-  $manage_yum_repos = true,
+  $manage_yum_repos = false,
+  $package_name = 'nrpe',
+  $service_name = 'nrpe',
 ){
   include opsviewagent::params
 
@@ -115,8 +118,9 @@ class opsviewagent (
   }
 
   package { 'opsview-agent':
+    name    => $package_name,
     ensure  => installed,
-    require => User['nagios'],
+    require => User[$nagios_user],
   }
 
   package { 'gawk':
@@ -127,15 +131,19 @@ class opsviewagent (
     ensure  => installed,
   }
 
+  package { ['nagios-plugins-disk', 'nagios-plugins-ntp', 'nagios-plugins-procs', 'nagios-plugins-load', 'nagios-plugins-swap', 'nagios-plugins-perl']:
+    ensure  => installed,
+    require => Package['opsview-agent'],
+  }
+
   service { 'opsview-agent':
+    name    => $service_name,
     ensure  => running,
     enable  => true,
-    restart => '/etc/init.d/opsview-agent restart',
-    start   => '/etc/init.d/opsview-agent restart',
   }
 
   file { 'nrpe.cfg':
-    path    => '/usr/local/nagios/etc/nrpe.cfg',
+    path    => $nrpe_cfg_override_configs_path,
     content => template('opsviewagent/nrpe.cfg.erb'),
     mode    => '0644',
     owner   => 'root',
@@ -148,8 +156,8 @@ class opsviewagent (
     recurse => true,
     purge   => true,
     mode    => '0550',
-    owner   => 'nagios',
-    group   => 'nagios',
+    owner   => $nagios_user,
+    group   => $nagios_user,
   }
 
   file { 'nrpe-scripts':
@@ -158,8 +166,8 @@ class opsviewagent (
     recurse => true,
     purge   => true,
     mode    => '0550',
-    owner   => 'nagios',
-    group   => 'nagios',
+    owner   => $nagios_user,
+    group   => $nagios_user,
   }
 
 }
