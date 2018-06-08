@@ -5,6 +5,10 @@ opsviewagent
 
 This is the opsviewagent module.
 
+**It currently defaults to installing NRPE.**
+
+It no longer works great with opsview-agent (especially the nrpe.cfg has some now nrpe hard coded paths).
+
 License
 -------
 
