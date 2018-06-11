@@ -55,14 +55,14 @@ class opsviewagent (
   $hosts = join( $allowed_hosts, ',' )
 
   if $manage_yum_repos {
-    Yumrepo['opsview'] ~> Package['opsview-agent']
+    Yumrepo['opsview'] ~> Package['nrpe-daemon']
   }
 
-  Package['opsview-agent'] -> File['nrpe.cfg']
-  Package['opsview-agent'] -> File['nrpe-configs']
-  Package['opsview-agent'] -> File['nrpe-scripts']
-  Package['opsview-agent'] -> Service['opsview-agent']
-  Package['opsview-agent'] -> Opsviewagent::Nrpe_command<||>
+  Package['nrpe-daemon'] -> File['nrpe.cfg']
+  Package['nrpe-daemon'] -> File['nrpe-configs']
+  Package['nrpe-daemon'] -> File['nrpe-scripts']
+  Package['nrpe-daemon'] -> Service['opsview-agent']
+  Package['nrpe-daemon'] -> Opsviewagent::Nrpe_command<||>
   File['nrpe-scripts'] ~> Service['opsview-agent']
   File['nrpe-configs'] ~> Service['opsview-agent']
   File['nrpe.cfg'] ~> Service['opsview-agent']
@@ -117,10 +117,17 @@ class opsviewagent (
     }
   }
 
-  package { 'opsview-agent':
+  package { 'nrpe-daemon':
     name    => $package_name,
     ensure  => installed,
     require => User[$nagios_user],
+  }
+  if $package_name == 'nrpe' {
+    package { 'opsview-agent-removal':
+      name   => 'opsview-agent',
+      ensure => absent,
+      before => Package[$package_name],
+    }
   }
 
   package { 'gawk':
@@ -133,7 +140,7 @@ class opsviewagent (
 
   package { ['nagios-plugins-disk', 'nagios-plugins-ntp', 'nagios-plugins-procs', 'nagios-plugins-load', 'nagios-plugins-swap', 'nagios-plugins-perl']:
     ensure  => installed,
-    require => Package['opsview-agent'],
+    require => Package['nrpe-daemon'],
   }
 
   service { 'opsview-agent':

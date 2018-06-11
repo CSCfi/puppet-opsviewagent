@@ -30,10 +30,11 @@
 # $Author: delgado $
 # $Revision: #13 $ $Date: 2018/03/14 $
 # Modified 2018/03/14 by jguldmyr to print errorcount as performancedata
+# Modified 2018/06/11 by jguldmyr to find utils.pm in nrpe installdir instead of opsview
 
 use strict;
 use Getopt::Std;
-use lib "/usr/local/nagios/libexec";
+use lib "/usr/lib64/nagios/plugins";
 use utils qw(%ERRORS);
 
 our($opt_h, $opt_s, $opt_o, $opt_m, $opt_p);
