@@ -3,7 +3,7 @@ define opsviewagent::nrpe_command(
   $script_arguments,
   $use_sudo = false,
 ) {
-  File[$name] ~> Service['opsview-agent']
+  File[$name] ~> Service['nrpe-daemon-service']
 
   # script is defined with absolute path
   if $script_name =~ /^\/.*/ {

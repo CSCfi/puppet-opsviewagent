@@ -1,7 +1,7 @@
 define opsviewagent::nrpe_script(
   $script_source,
 ) {
-  File[$name] ~> Service['opsview-agent']
+  File[$name] ~> Service['nrpe-daemon-service']
 
   file { $name:
     path    => "${opsviewagent::nrpe_local_script_path}/${name}",

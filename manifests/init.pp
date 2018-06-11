@@ -61,11 +61,11 @@ class opsviewagent (
   Package['nrpe-daemon'] -> File['nrpe.cfg']
   Package['nrpe-daemon'] -> File['nrpe-configs']
   Package['nrpe-daemon'] -> File['nrpe-scripts']
-  Package['nrpe-daemon'] -> Service['opsview-agent']
+  Package['nrpe-daemon'] -> Service['nrpe-daemon-service']
   Package['nrpe-daemon'] -> Opsviewagent::Nrpe_command<||>
-  File['nrpe-scripts'] ~> Service['opsview-agent']
-  File['nrpe-configs'] ~> Service['opsview-agent']
-  File['nrpe.cfg'] ~> Service['opsview-agent']
+  File['nrpe-scripts'] ~> Service['nrpe-daemon-service']
+  File['nrpe-configs'] ~> Service['nrpe-daemon-service']
+  File['nrpe.cfg'] ~> Service['nrpe-daemon-service']
 
   if $manage_firewall {
     case $::opsviewagent::params::firewall_manager {
@@ -126,7 +126,7 @@ class opsviewagent (
     package { 'opsview-agent-removal':
       name   => 'opsview-agent',
       ensure => absent,
-      before => Package[$package_name],
+      before => User[$nagios_user],
     }
   }
 
@@ -138,12 +138,12 @@ class opsviewagent (
     ensure  => installed,
   }
 
-  package { ['nagios-plugins-disk', 'nagios-plugins-ntp', 'nagios-plugins-procs', 'nagios-plugins-load', 'nagios-plugins-swap', 'nagios-plugins-perl']:
+  package { ['nagios-plugins-disk', 'nagios-plugins-ntp', 'nagios-plugins-procs', 'nagios-plugins-load', 'nagios-plugins-swap', 'nagios-plugins-perl', 'nagios-plugins-http']:
     ensure  => installed,
     require => Package['nrpe-daemon'],
   }
 
-  service { 'opsview-agent':
+  service { 'nrpe-daemon-service':
     name    => $service_name,
     ensure  => running,
     enable  => true,
@@ -167,7 +167,27 @@ class opsviewagent (
     group   => $nagios_user,
   }
 
+  file { 'opsview-nagios-dir':
+    ensure  => directory,
+    path    => '/usr/local/nagios',
+    recurse => true,
+    mode    => '0550',
+    owner   => $nagios_user,
+    group   => $nagios_user,
+  }
+  file { 'opsview-libexec-dir':
+    ensure  => directory,
+    path    => '/usr/local/nagios/libexec',
+    recurse => true,
+    mode    => '0550',
+    owner   => $nagios_user,
+    group   => $nagios_user,
+    require => File['opsview-nagios-dir'],
+  }
+
+
   file { 'nrpe-scripts':
+    ensure  => directory,
     path    => $nrpe_local_script_path,
     source  => 'puppet:///modules/opsviewagent/nrpe/',
     recurse => true,
@@ -175,6 +195,7 @@ class opsviewagent (
     mode    => '0550',
     owner   => $nagios_user,
     group   => $nagios_user,
+    require => File['opsview-libexec-dir'],
   }
 
 }
