@@ -9,6 +9,8 @@ This is the opsviewagent module.
 
 It no longer works great with opsview-agent (especially the nrpe.cfg has some now nrpe hard coded paths).
 
+To resolve conflicts between the packages when changing from opsview-agent to nrpe then before nrpe is installed the role will ensure opsview-agent is absent.
+
 License
 -------
 
