@@ -63,7 +63,7 @@ class opsviewagent (
   Package['nrpe-daemon'] -> File['nrpe-scripts']
   Package['nrpe-daemon'] -> Service['nrpe-daemon-service']
   Package['nrpe-daemon'] -> Opsviewagent::Nrpe_command<||>
-  Package['nrpe-daemon'] -> User[$nagios_user]
+  User[$nagios_user] -> Package['nrpe-daemon']
   File['nrpe-scripts'] ~> Service['nrpe-daemon-service']
   File['nrpe-configs'] ~> Service['nrpe-daemon-service']
   File['nrpe.cfg'] ~> Service['nrpe-daemon-service']
