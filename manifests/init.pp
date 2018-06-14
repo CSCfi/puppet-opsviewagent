@@ -63,9 +63,12 @@ class opsviewagent (
   Package['nrpe-daemon'] -> File['nrpe-scripts']
   Package['nrpe-daemon'] -> Service['nrpe-daemon-service']
   Package['nrpe-daemon'] -> Opsviewagent::Nrpe_command<||>
+  User[$nagios_user] -> Package['nrpe-daemon']
   File['nrpe-scripts'] ~> Service['nrpe-daemon-service']
   File['nrpe-configs'] ~> Service['nrpe-daemon-service']
   File['nrpe.cfg'] ~> Service['nrpe-daemon-service']
+  File['nrpe-scripts'] -> File['opsview-libexec-dir']
+  File['opsview-libexec-dir'] -> File['opsview-nagios-dir']
 
   if $manage_firewall {
     case $::opsviewagent::params::firewall_manager {
@@ -102,9 +105,10 @@ class opsviewagent (
 
   if $nagios_public_ssh_key {
     ssh_authorized_key { "${nagios_user}@taito-service01.csc.fi":
-      user => $nagios_user,
-      type => 'ssh-rsa',
-      key  => $nagios_public_ssh_key,
+      user    => $nagios_user,
+      type    => 'ssh-rsa',
+      key     => $nagios_public_ssh_key,
+      require => User[$nagios_user],
     }
   }
 
@@ -120,7 +124,6 @@ class opsviewagent (
   package { 'nrpe-daemon':
     name    => $package_name,
     ensure  => installed,
-    require => User[$nagios_user],
   }
   if $package_name == 'nrpe' {
     package { 'opsview-agent-removal':
@@ -182,7 +185,6 @@ class opsviewagent (
     mode    => '0550',
     owner   => $nagios_user,
     group   => $nagios_user,
-    require => File['opsview-nagios-dir'],
   }
 
 
@@ -195,7 +197,6 @@ class opsviewagent (
     mode    => '0550',
     owner   => $nagios_user,
     group   => $nagios_user,
-    require => File['opsview-libexec-dir'],
   }
 
 }
