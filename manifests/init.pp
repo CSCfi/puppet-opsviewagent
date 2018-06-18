@@ -64,11 +64,11 @@ class opsviewagent (
   Package['nrpe-daemon'] -> Service['nrpe-daemon-service']
   Package['nrpe-daemon'] -> Opsviewagent::Nrpe_command<||>
   User[$nagios_user] -> Package['nrpe-daemon']
+  File['opsview-nagios-dir'] -> File['opsview-libexec-dir']
+  File['opsview-libexec-dir'] -> File['nrpe-scripts']
   File['nrpe-scripts'] ~> Service['nrpe-daemon-service']
   File['nrpe-configs'] ~> Service['nrpe-daemon-service']
   File['nrpe.cfg'] ~> Service['nrpe-daemon-service']
-  File['nrpe-scripts'] -> File['opsview-libexec-dir']
-  File['opsview-libexec-dir'] -> File['opsview-nagios-dir']
 
   if $manage_firewall {
     case $::opsviewagent::params::firewall_manager {
@@ -173,7 +173,6 @@ class opsviewagent (
   file { 'opsview-nagios-dir':
     ensure  => directory,
     path    => '/usr/local/nagios',
-    recurse => true,
     mode    => '0550',
     owner   => $nagios_user,
     group   => $nagios_user,
@@ -181,7 +180,6 @@ class opsviewagent (
   file { 'opsview-libexec-dir':
     ensure  => directory,
     path    => '/usr/local/nagios/libexec',
-    recurse => true,
     mode    => '0550',
     owner   => $nagios_user,
     group   => $nagios_user,
