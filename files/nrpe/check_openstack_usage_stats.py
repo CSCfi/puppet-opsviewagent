@@ -92,7 +92,7 @@ def get_per_flavor_active_vm_count(nova):
        name = nova.flavors.get(flavor)
      except NovaNotFound:
        continue
-     flavor_name_dict["num_vms_by_flavors." + str(name.name).replace(".", '_')] = flavor_id_dict[flavor]
+     flavor_name_dict["vms." + str(name.name).replace(".", '_')] = flavor_id_dict[flavor]
   return flavor_name_dict
 
 
