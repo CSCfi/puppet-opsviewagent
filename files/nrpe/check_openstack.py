@@ -50,6 +50,7 @@ DEFAULT_MAX_WAIT_TIME    = 90
 DEFAULT_PING_COUNT       = 5
 DEFAULT_PING_INTERVAL    = 2
 DEFAULT_NO_PING          = False
+DEFAULT_ONLY_WINDOWS     = False
 
 STATUS_VOLUME_AVAILABLE  = 'available'
 STATUS_VOLUME_OK_DELETE  = ['available', 'error']
@@ -751,6 +752,8 @@ class OSCapacityCheck():
     enabled_hypervisors = filter(lambda x: x.service['host'] in enabled_hosts, hypervisors)
 
     for aggr in host_aggregates:
+      # If a windows aggregate and we have not specified "only windows" then we skip it
+      if "windows" in aggr.name and self.options.only_windows == False: continue
       aggr_hypervisors = filter(lambda hv: hv.hypervisor_hostname in aggr.hosts, enabled_hypervisors)
 
       total_aggr_cpus = sum(map(lambda hv: hv.vcpus, aggr_hypervisors))
@@ -1016,6 +1019,7 @@ def parse_command_line():
   parser.add_option("-w", "--wait", dest='wait', type='int', help='max seconds to wait for creation')
   parser.add_option("-z", "--no-ping", dest='no_ping', action='store_true', help='no ping test')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
+  parser.add_option("-k", "--only-windows", dest='only_windows', action='store_true', help='Option to only print windows aggregate OSCapacity as a way to combat 1024 character limit in check_nrpe')
   
   (options, args) = parser.parse_args()
 
@@ -1044,6 +1048,8 @@ def parse_command_line():
   if options.milliseconds:
     global USE_SECONDS
     USE_SECONDS = False
+  if not options.only_windows:
+    options.only_windows = DEFAULT_ONLY_WINDOWS
 
   if len(args) == 0:
     sys.exit(NAGIOS_STATE_UNKNOWN, 'Command argument missing! Use --help.')
