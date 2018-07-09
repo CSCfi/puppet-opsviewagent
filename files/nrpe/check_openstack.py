@@ -401,6 +401,10 @@ class OSGhostInstanceCheck():
         logging.warn('unable to connect to {0}'.format(host))
         logging.warn('{0}: {1}'.format(e.__class__.__name__, e))
         raise HostNotAvailableException(host=host)
+      except paramiko.SSHException as e:
+        logging.warn('SSHException when connecting to {0}'.format(host))
+        logging.warn('{0}: {1}'.format(e.__class__.__name__, e))
+        pass
 
     return instances
 
