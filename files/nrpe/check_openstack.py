@@ -51,6 +51,7 @@ DEFAULT_PING_COUNT       = 5
 DEFAULT_PING_INTERVAL    = 2
 DEFAULT_NO_PING          = False
 DEFAULT_ONLY_WINDOWS     = False
+DEFAULT_COLLECTD         = False
 
 STATUS_VOLUME_AVAILABLE  = 'available'
 STATUS_VOLUME_OK_DELETE  = ['available', 'error']
@@ -1020,6 +1021,7 @@ def parse_command_line():
   parser.add_option("-z", "--no-ping", dest='no_ping', action='store_true', help='no ping test')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
   parser.add_option("-k", "--only-windows", dest='only_windows', action='store_true', help='Option to only print windows aggregate OSCapacity as a way to combat 1024 character limit in check_nrpe')
+  parser.add_option("-o", "--collectd", dest='collectd', action='store_true', help='Print in collectd format instead of nagios')
   
   (options, args) = parser.parse_args()
 
@@ -1045,6 +1047,8 @@ def parse_command_line():
     options.ping_interval = DEFAULT_PING_INTERVAL
   if not options.wait:
     options.wait = DEFAULT_MAX_WAIT_TIME
+  if not options.collectd:
+    options.collectd = DEFAULT_COLLECTD
   if options.milliseconds:
     global USE_SECONDS
     USE_SECONDS = False
@@ -1086,7 +1090,7 @@ def execute_check(options, args):
   
   return os_check[command](options).execute()
 
-def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
+def exit_with_stats(collectd, exit_code=NAGIOS_STATE_OK, stats=dict()):
   '''
   Exits with the specified exit_code and outputs any stats in the format 
   nagios/opsview expects.
@@ -1102,16 +1106,33 @@ def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
   else:
     stats = timing_info
 
-  if exit_code == NAGIOS_STATE_OK:
-    output = 'OK |'
-  elif exit_code == NAGIOS_STATE_WARNING:
-    output = 'WARNING |'
-  else:
-    output = 'CRITICAL |'
+  if collectd:
+    # This should result in:
+    # PUTVAL "devel1_fqdn_example_com/openstack_capacity.aggr_tb-skylake-r640_mem_available/gauge" interval=60 N:785093
+    my_hostname = os.uname()[1].replace('.','_')
+    check_name = "openstack_capacity"
+    output = ""
+    cnt_stats = 0
+    # count and add newline because we don't want empty newline
+    for key in stats:
+      cnt_stats = cnt_stats + 1
+      output += 'PUTVAL ' + '"' + my_hostname + '/' + check_name + "." + key + '/gauge" interval=60 N:' + str(stats[key])
+      if cnt_stats < len(stats):
+        output += '\n'
 
-  for key in stats:
-    output += ' ' + key + '=' + str(stats[key])
-  print(output)
+    print(output)
+
+  else:
+    if exit_code == NAGIOS_STATE_OK:
+      output = 'OK |'
+    elif exit_code == NAGIOS_STATE_WARNING:
+      output = 'WARNING |'
+    else:
+      output = 'CRITICAL |'
+
+    for key in stats:
+      output += ' ' + key + '=' + str(stats[key])
+    print(output)
   
   sys.exit(exit_code)
 
@@ -1161,7 +1182,7 @@ def main():
   #  print "{0}: {1}".format(e.__class__.__name__, e)
   #  exit_with_stats(NAGIOS_STATE_CRITICAL)
 
-  exit_with_stats(NAGIOS_STATE_OK, results)
+  exit_with_stats(options.collectd, NAGIOS_STATE_OK, results)
 
 if __name__ == '__main__':
   main()
