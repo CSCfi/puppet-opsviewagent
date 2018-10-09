@@ -204,7 +204,7 @@ class opsviewagent (
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
-    content => template('puppet-opsviewagent/nrpe.service.erb'),
+    content => template('opsviewagent/nrpe.service.erb'),
   }
 
   exec { "systemctl daemon-reload on nrpe unitfile change}":
