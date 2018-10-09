@@ -66,6 +66,7 @@ class opsviewagent (
   User[$nagios_user] -> Package['nrpe-daemon']
   File['opsview-nagios-dir'] -> File['opsview-libexec-dir']
   File['opsview-libexec-dir'] -> File['nrpe-scripts']
+  File['nrpe-unitfile'] ~> Service['nrpe-daemon-service']
   File['nrpe-scripts'] ~> Service['nrpe-daemon-service']
   File['nrpe-configs'] ~> Service['nrpe-daemon-service']
   File['nrpe.cfg'] ~> Service['nrpe-daemon-service']
@@ -195,6 +196,23 @@ class opsviewagent (
     mode    => '0550',
     owner   => $nagios_user,
     group   => $nagios_user,
+  }
+
+  file { 'nrpe-unitfile':
+    ensure  => true,
+    path    => "/usr/lib/systemd/system/nrpe.service",
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0644',
+    content => template('puppet-opsviewagent/nrpe.service.erb'),
+  }
+
+  exec { "systemctl daemon-reload on nrpe unitfile change}":
+    command     => 'systemctl daemon-reload',
+    refreshonly => true,
+    logoutput   => on_failure,
+    subscribe   => File['nrpe-unitfile'],
+    notify      => Service['nrpe-daemon-service'],
   }
 
 }
