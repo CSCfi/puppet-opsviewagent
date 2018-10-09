@@ -9,7 +9,7 @@ WantedBy=multi-user.target
 
 [Service]
 Type=forking
-User=nrpe
-Group=nrpe
+User=<%= @nagios_user %>
+Group=<%= @nagios_user %>
 EnvironmentFile=/etc/sysconfig/nrpe
 ExecStart=/usr/sbin/nrpe -c /etc/nagios/nrpe.cfg -d $NRPE_SSL_OPT
