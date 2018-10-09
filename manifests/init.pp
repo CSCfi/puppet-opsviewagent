@@ -199,7 +199,7 @@ class opsviewagent (
   }
 
   file { 'nrpe-unitfile':
-    ensure  => true,
+    ensure  => file,
     path    => '/usr/lib/systemd/system/nrpe.service',
     owner   => 'root',
     group   => 'root',
