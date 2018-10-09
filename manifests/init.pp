@@ -200,14 +200,14 @@ class opsviewagent (
 
   file { 'nrpe-unitfile':
     ensure  => true,
-    path    => "/usr/lib/systemd/system/nrpe.service",
+    path    => '/usr/lib/systemd/system/nrpe.service',
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
     content => template('opsviewagent/nrpe.service.erb'),
   }
 
-  exec { "systemctl daemon-reload on nrpe unitfile change}":
+  exec { 'systemctl daemon-reload on nrpe unitfile change':
     command     => 'systemctl daemon-reload',
     refreshonly => true,
     logoutput   => on_failure,
