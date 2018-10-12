@@ -13,3 +13,4 @@ User=<%= @nagios_user %>
 Group=<%= @nagios_user %>
 EnvironmentFile=/etc/sysconfig/nrpe
 ExecStart=/usr/sbin/nrpe -c /etc/nagios/nrpe.cfg -d $NRPE_SSL_OPT
+Nice=-15
