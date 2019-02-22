@@ -131,7 +131,7 @@ allow_weak_random_seed=0
 # Opsview checks
 command[check_users]=/usr/lib64/nagios/plugins/check_users $ARG1$
 # Hard code check_load to give warning at # of cores+1 and critical at # of cores + cores/10)
-command[check_load]=/usr/lib64/nagios/plugins/check_load -a '-w <%= @processorcount.to_i + 1 %>,<%= @processorcount.to_i + 1 %>,<%= @processorcount.to_i + 1 %> -c <%=@processorcount.to_i + Integer(@processorcount.to_i/10) %>,<%= @processorcount.to_i + Integer(@processorcount.to_i/10) %>,<%= @processorcount.to_i + Integer(@processorcount.to_i/10) %>'
+command[check_load]=/usr/lib64/nagios/plugins/check_load -w <%= @processorcount.to_i + 1 %>,<%= @processorcount.to_i + 1 %>,<%= @processorcount.to_i + 1 %> -c <%=@processorcount.to_i + 2 + Integer(@processorcount.to_i/10) %>,<%= @processorcount.to_i + 2 + Integer(@processorcount.to_i/10) %>,<%= @processorcount.to_i + 2 + Integer(@processorcount.to_i/10) %>
 command[check_disk]=/usr/lib64/nagios/plugins/check_disk $ARG1$
 command[check_swap]=/usr/lib64/nagios/plugins/check_swap $ARG1$
 command[check_procs]=/usr/lib64/nagios/plugins/check_procs $ARG1$
