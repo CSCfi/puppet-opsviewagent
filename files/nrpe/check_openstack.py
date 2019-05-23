@@ -756,9 +756,10 @@ class OSCapacityCheck():
     enabled_hypervisors = filter(lambda x: x.service['host'] in enabled_hosts, hypervisors)
 
     for aggr in host_aggregates:
-      # If a skylake aggregate and we have not specified "only skylake" then we skip it
+      # If not a skylake aggregate and we have specified "only skylake" then we skip it
       if "skylake" not in aggr.name and self.options.only_skylake == True:
         continue
+      # If a skylake aggregate and we have not specified "only skylake" then we skip it
       if "skylake" in aggr.name and self.options.only_skylake == False:
         continue
       aggr_hypervisors = filter(lambda hv: hv.hypervisor_hostname in aggr.hosts, enabled_hypervisors)
