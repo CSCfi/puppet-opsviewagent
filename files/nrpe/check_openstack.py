@@ -810,7 +810,6 @@ class OSCapacityCheckCPUs(OSCapacityCheck):
     try:
       results.update(self.check_host_aggregate_capacities())
       resultsx = dict((key, value) for (key, value) in results.iteritems() if '_cpus_' in key and 'aggr_' in key)
-      print resultsx
     except:
       raise
     return resultsx
