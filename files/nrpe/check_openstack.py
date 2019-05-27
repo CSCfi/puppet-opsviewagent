@@ -782,6 +782,38 @@ class OSCapacityCheck():
       raise
     return results
 
+
+class OSCapacityCheckNetwork(OSCapacityCheck):
+  def execute(self):
+    results = dict()
+    try:
+      results.update(self.check_vlan_capacity())
+      if self.options.no_ping == False:
+        results.update(self.check_floating_ips())
+    except:
+      raise
+    return results
+
+class OSCapacityCheckRAM(OSCapacityCheck):
+  def execute(self):
+    results = dict()
+    try:
+      results.update(self.check_host_aggregate_capacities())
+      resultsx =dict((key, value) for (key, value) in results.iteritems() if '_mem_' in key and 'aggr_' in key)
+    except:
+      raise
+    return resultsx
+
+class OSCapacityCheckCPUs(OSCapacityCheck):
+  def execute(self):
+    results = dict()
+    try:
+      results.update(self.check_host_aggregate_capacities())
+      resultsx = dict((key, value) for (key, value) in results.iteritems() if '_cpus_' in key and 'aggr_' in key)
+    except:
+      raise
+    return resultsx
+
 class OSBarbicanAvailability():
   '''
   Check Barbicam API call length by using list
@@ -1081,6 +1113,9 @@ def execute_check(options, args):
     'neutron': OSNeutronAvailability,
     'nova': OSNovaAvailability,
     'keystone': OSKeystoneAvailability,
+    'capacitynetwork': OSCapacityCheckNetwork,
+    'capacitycpus': OSCapacityCheckCPUs,
+    'capacityram': OSCapacityCheckRAM,
   }
 
 
