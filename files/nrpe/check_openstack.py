@@ -1113,7 +1113,7 @@ def execute_check(options, args):
     'neutron': OSNeutronAvailability,
     'nova': OSNovaAvailability,
     'keystone': OSKeystoneAvailability,
-    'capacitysimple': OSCapacityCheckNetwork,
+    'capacitynetwork': OSCapacityCheckNetwork,
     'capacitycpus': OSCapacityCheckCPUs,
     'capacityram': OSCapacityCheckRAM,
   }
