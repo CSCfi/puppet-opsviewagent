@@ -783,7 +783,7 @@ class OSCapacityCheck():
     return results
 
 
-class OSCapacityCheckSimple(OSCapacityCheck):
+class OSCapacityCheckNetwork(OSCapacityCheck):
   def execute(self):
     results = dict()
     try:
@@ -1113,7 +1113,7 @@ def execute_check(options, args):
     'neutron': OSNeutronAvailability,
     'nova': OSNovaAvailability,
     'keystone': OSKeystoneAvailability,
-    'capacitysimple': OSCapacityCheckSimple,
+    'capacitysimple': OSCapacityCheckNetwork,
     'capacitycpus': OSCapacityCheckCPUs,
     'capacityram': OSCapacityCheckRAM,
   }
