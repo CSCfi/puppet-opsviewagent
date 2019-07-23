@@ -20,6 +20,9 @@
 #		    threshold ( Zoran Bosnjak & Marko Hrastovec )
 # v0.8 01/09/2019 - Use sudo to run crm commands ( Johan Guldmyr )
 #
+# v.0.9 22/07/2019 - Add fix for unmanaged resources as the regex didn't  match
+#                   when you are using FQDN ( dots / hyphens)
+#
 # NOTES: Requires Perl 5.8 or higher & the Perl Module Nagios::Plugin
 
 use warnings;
@@ -183,7 +186,7 @@ sub check_failed_actions {
 
 sub check_unmanaged_resources {
   my $line = shift;
-  if ( $line =~ m/\s*(\S+?)\s+\(.*\)\:\s+\w+\s+\w+\s+\(unmanaged\)\s+/i )
+  if ( $line =~ m/\s*(\S+?)\s+\(.*\)\:\s+\w+\s+\S+\s+\(unmanaged\)\s+/i )
   {
       $np->add_message( CRITICAL, "; resource $1 unmanaged" );
   }
