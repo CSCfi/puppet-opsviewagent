@@ -2,10 +2,13 @@
 
 # This script will check hwclock of the system.
 # Then compare hwclock with system time. if there
-# is more then 5 minutes of difference then it
-# notify in opsview.
+# is more then 5 minutes of difference then it notify.
 
-#!/bin/bash
+## Nagios return codes
+WARNING=1
+CRITICAL=2
+UNKNOWN=3
+OK=0
 
 HWtime=$(sudo hwclock --debug | grep Hw | cut -d" " -f 8)
 SYStime=$(date +%s)
@@ -14,5 +17,9 @@ let diff_time_min=$diff_time/60
 
 if [ $diff_time -gt 900 ] ; then
    echo "Hardware clock is more than $diff_time_min minutes past now"
-   exit 1
+   exit $WARNING
+
+elif [ $diff_time -lt 10 ] ; then
+   echo "Hardware clock is $diff_time secound past than system time"
+   exit $OK
 fi
