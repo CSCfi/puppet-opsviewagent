@@ -4,7 +4,7 @@
 # Then compare hwclock with system time. if there
 # is more then 5 minutes of difference then it notify.
 
-## Nagios return codes
+# Nagios return codes
 WARNING=1
 CRITICAL=2
 UNKNOWN=3
