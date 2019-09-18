@@ -23,7 +23,10 @@ NAGIOS_STATE_CRITICAL = 2
 NAGIOS_STATE_UNKNOWN  = 3
 
 def get_all_servers(nova):
-    return nova.servers.list(search_opts={'all_tenants': True})
+    search_opts = {'all_tenants': True,
+                   'deleted': False,
+                   'instance_name': False}
+    return nova.servers.list(search_opts=search_opts)
 
 def get_list_of_users_with_vms(nova):
     return map(lambda x: x.user_id, get_all_servers(nova))
@@ -73,13 +76,7 @@ def get_cinder_usage(cinder):
   cinder_usage_gb = reduce(lambda x, y: x + y.size, [0] + vols)
   return cinder_usage_gb
 
-def get_per_flavor_active_vm_count(nova):
-  search_opts = {'all_tenants': True,
-                 'deleted': False,
-                 'instance_name': False}
-
-  # Get the array of Server objects
-  servers = nova.servers.list(detailed=True,search_opts=search_opts)
+def get_per_flavor_active_vm_count(nova,servers):
   flavor_id_dict = dict()
   for server in servers:
     flavor = server.flavor['id']
@@ -178,7 +175,6 @@ def main():
     cred['domain_id'] = options.auth_domain_name
 
     openstack = oscred(**cred)
-
     nova = openstack.get_nova()
     keystone = openstack.get_keystone()
     cinder = openstack.get_cinder()
@@ -195,7 +191,7 @@ def main():
 
     (used_mem, total_mem, hv_util_percent) = get_hypervisor_utilization(nova)
 
-    results = get_per_flavor_active_vm_count(nova)
+    results = get_per_flavor_active_vm_count(nova,all_servers)
     results.update({"total_number_of_vms": total_number_of_vms,
                     "users_with_vms": users_with_vms,
                     "total_number_of_users": total_number_of_users,
