@@ -23,10 +23,7 @@ NAGIOS_STATE_CRITICAL = 2
 NAGIOS_STATE_UNKNOWN  = 3
 
 def get_all_servers(nova):
-    search_opts = {'all_tenants': True,
-                   'deleted': False,
-                   'instance_name': False}
-    return nova.servers.list(search_opts=search_opts)
+    return nova.servers.list(search_opts={'all_tenants': True})
 
 def get_list_of_users_with_vms(nova):
     return map(lambda x: x.user_id, get_all_servers(nova))
