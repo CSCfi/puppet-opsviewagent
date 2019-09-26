@@ -26,6 +26,6 @@ elif [ $diff_time -eq 0 ] ; then
    exit $OK
 
 else 
-   echo "Something Unknown happened here with hardware clock"
+   echo "Something Unknown happened here"
    exit $UNKNOWN
 fi
