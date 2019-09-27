@@ -27,6 +27,6 @@ elif [ $diff_time -eq 0 ] ; then
    exit $OK
 
 else 
-   echo "Something Unknown happened here"
+   echo "Hardware clock is now ahead than system time"
    exit $UNKNOWN
 fi
