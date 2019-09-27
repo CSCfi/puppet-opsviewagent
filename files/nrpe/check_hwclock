@@ -1,7 +1,12 @@
 #!/bin/bash
 
+# Managed by puppet
+
 # This script will check hwclock of the node.
 # Then compare hwclock with system time.
+# If hwclock is not same with system clock then 
+# it will return WARNING. If hwclock is same with
+# system clock then it will return OK.
 
 # Nagios return codes
 OK=0
@@ -13,11 +18,7 @@ HWtime=$(sudo hwclock --debug | grep Hw | cut -d" " -f 8)
 SYStime=$(date +%s)
 let diff_time=$SYStime-$HWtime
 
-if [ $diff_time -gt 300 ] ; then
-   echo "CRITICAL: Hardware clock is more than $diff_time seconds past now"
-   exit $CRITICAL
-
-elif [ $diff_time -lt 300 ] && [ $diff_time -gt 1 ] ; then
+if [ $diff_time -gt 1 ] ; then
    echo "WARNING: Hardware clock is more than $diff_time seconds past now"
    exit $WARNING
 
