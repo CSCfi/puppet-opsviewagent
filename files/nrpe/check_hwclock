@@ -26,7 +26,11 @@ elif [ $diff_time -eq 0 ] ; then
    echo "OK: Hardware clock is synced with system time"
    exit $OK
 
-else 
+elif [ $diff_time -lt 0 ] ; then
    echo "Hardware clock is now ahead of system time"
+   exit $CRITICAL
+
+else
+   echo "Something Unknown hapened with time"
    exit $UNKNOWN
 fi
