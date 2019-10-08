@@ -69,9 +69,6 @@ function critical () {
 }
 
 function check () {
-# if hardware clock is in past of system time
-if [[ $SYStime -gt $HWtime ]]; then
-  let diff_time=$SYStime-$HWtime
   if [[ $diff_time -ge 0 && $diff_time -le $warn ]] ; then
     ok
 
@@ -81,25 +78,20 @@ if [[ $SYStime -gt $HWtime ]]; then
   elif [[ $diff_time -ge $crit ]] ; then
     critical
   fi
+}
+
+# if hardware clock is in past of system time
+if [[ $SYStime -gt $HWtime ]]; then
+  let diff_time=$SYStime-$HWtime
+    check
 
 # if hardware clock is in future of system time
 elif [[ $HWtime -gt $SYStime ]]; then
   let diff_time=$HWtime-$SYStime
-  if [[ $diff_time -ge 0 && $diff_time -le $warn ]] ; then
-    ok
-
-  elif [[ $diff_time -ge $warn && $diff_time -le $crit ]] ; then
-    warning
-
-  elif [[ $diff_time -ge $crit ]] ; then
-    critical
-  fi
+    check
 
 # or hwclock and system clock both are same
 else
     ok
 fi
-}
 
-# finally call function check
-check
