@@ -50,23 +50,21 @@ function ok () {
    exit $OK
 }
 
-function warning_past () {
+function warning () {
+  if [[ $SYStime -gt $HWtime ]]; then
    echo "WARNING: hwclock is $diff_time seconds past of system time"
-   exit $WARNING
-}
-
-function critical_past () {
-   echo "CRITICAL: hwclock is $diff_time seconds past of system time"
-   exit $CRITICAL
-}
-
-function warning_ahead () {
+  else 
    echo "WARNING: hwclock is $diff_time seconds ahead of system time"
+  fi
    exit $WARNING
 }
 
-function critical_ahead () {
+function critical () {
+  if [[ $SYStime -gt $HWtime ]]; then
+   echo "CRITICAL: hwclock is $diff_time seconds past of system time"
+  else
    echo "CRITICAL: hwclock is $diff_time seconds ahead of system time"
+  fi
    exit $CRITICAL
 }
 
@@ -78,10 +76,10 @@ if [[ $SYStime -gt $HWtime ]]; then
     ok
 
   elif [[ $diff_time -ge $warn && $diff_time -le $crit ]] ; then
-    warning_past
+    warning
 
   elif [[ $diff_time -ge $crit ]] ; then
-    critical_past
+    critical
   fi
 
 # if hardware clock is in future of system time
@@ -91,10 +89,10 @@ elif [[ $HWtime -gt $SYStime ]]; then
     ok
 
   elif [[ $diff_time -ge $warn && $diff_time -le $crit ]] ; then
-    warning_ahead
+    warning
 
   elif [[ $diff_time -ge $crit ]] ; then
-    critical_ahead
+    critical
   fi
 
 # or hwclock and system clock both are same
