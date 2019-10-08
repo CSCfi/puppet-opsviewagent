@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash                                                                                                                                                                   [71/462]
 
 # At first, this script will get hwclock of the node.
 # Then compare hwclock with system time.
@@ -36,7 +36,7 @@ while [[ -n "$1" ]]; do
     *)
       echo "Unknown argument: $1"
       exec "$0" --help
-      exit 3
+      exit 3                                                                                                                                                                  [33/462]
       ;;
   esac
   shift
@@ -44,39 +44,64 @@ done
 
 HWtime=$(sudo hwclock --debug | grep Hw | cut -d" " -f 8)
 SYStime=$(date +%s)
-let diff_time=$SYStime-$HWtime
 
-function check () {
-if [[ $HWtime -le $SYStime && $diff_time -ge 0 && $diff_time -le $warn ]] ; then
+function ok () {
    echo "OK: Hardware clock is synced with system time"
    exit $OK
+}
 
-elif [[ $HWtime -le $SYStime && $diff_time -ge $warn && $diff_time -le $crit ]] ; then
+function warning_past () {
    echo "WARNING: hwclock is $diff_time seconds past of system time"
    exit $WARNING
+}
 
-elif [[ $HWtime -le $SYStime && $diff_time -ge $crit ]] ; then
+function critical_past () {
    echo "CRITICAL: hwclock is $diff_time seconds past of system time"
    exit $CRITICAL
+}
 
-elif [[ $HWtime -gt $SYStime && $diff_time -ge 0 && $diff_time -le $warn ]] ; then
-   echo "OK: Hardware clock is synced with system time"
-   exit $OK
-
-elif [[ $HWtime -gt $SYStime && $diff_time -le $warn ]] ; then
+function warning_ahead () {
    echo "WARNING: hwclock is $diff_time seconds ahead of system time"
    exit $WARNING
+}
 
-elif [[ $HWtime -gt $SYStime && $diff_time -ge $crit ]] ; then
+function critical_ahead () {
    echo "CRITICAL: hwclock is $diff_time seconds ahead of system time"
    exit $CRITICAL
+}
 
+function check () {
+# if hardware clock is in past of system time
+if [[ $SYStime -gt $HWtime ]]; then
+  let diff_time=$SYStime-$HWtime
+  if [[ $diff_time -ge 0 && $diff_time -le $warn ]] ; then
+    ok
+
+  elif [[ $diff_time -ge $warn && $diff_time -le $crit ]] ; then
+    warning_past
+
+  elif [[ $diff_time -ge $crit ]] ; then
+    critical_past
+  fi
+
+# if hardware clock is in future of system time
+elif [[ $HWtime -gt $SYStime ]]; then
+  let diff_time=$HWtime-$SYStime
+  if [[ $diff_time -ge 0 && $diff_time -le $warn ]] ; then
+    ok
+
+  elif [[ $diff_time -ge $warn && $diff_time -le $crit ]] ; then
+    warning_ahead
+
+  elif [[ $diff_time -ge $crit ]] ; then
+    critical_ahead
+  fi
+
+# or hwclock and system clock both are same
 else
-   echo "Something Unknown hapened with time"
-   exit $UNKNOWN
+    ok
 fi
 }
 
-# And finally the function call
+# finally call function check
 check
-
