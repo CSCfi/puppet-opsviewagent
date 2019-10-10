@@ -1,4 +1,4 @@
-#!/bin/bash                                                                                                                                                                   [71/462]
+#!/bin/bash 
 
 # At first, this script will get hwclock of the node.
 # Then compare hwclock with system time.
@@ -36,7 +36,7 @@ while [[ -n "$1" ]]; do
     *)
       echo "Unknown argument: $1"
       exec "$0" --help
-      exit 3                                                                                                                                                                  [33/462]
+      exit 3 
       ;;
   esac
   shift
