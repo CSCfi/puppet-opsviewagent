@@ -1,0 +1,97 @@
+#!/bin/bash 
+
+# At first, this script will get hwclock of the node.
+# Then compare hwclock with system time.
+# If hwclock is same with system clock then it will return OK.
+# If hwclock is not same with system clock then
+# it will return WARNING or CRITICAL depending on the time lapse.
+#
+# Usage: check_hwclock.sh [-w warning] [-c critical]
+#   -w, --warning WARNING       Warning value (percent)
+#   -c, --critical CRITICAL     Critical value (percent)
+#   -H, --help                  Display this screen
+#
+# Written by Khabir Uddin @ CSC 2019
+#
+# nagios return code
+OK=0
+WARNING=1
+CRITICAL=2
+UNKNOWN=3
+
+while [[ -n "$1" ]]; do
+  case $1 in
+    --warning | -w)
+      warn=$2
+      shift
+      ;;
+    --critical | -c)
+      crit=$2
+      shift
+      ;;
+    --help | -H)
+      sed -n '9,13p' "$0" | tr -d '#'
+      exit 3
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exec "$0" --help
+      exit 3 
+      ;;
+  esac
+  shift
+done
+
+HWtime=$(sudo hwclock --debug | grep Hw | cut -d" " -f 8)
+SYStime=$(date +%s)
+
+function ok () {
+   echo "OK: Hardware clock is synced with system time"
+   exit $OK
+}
+
+function warning () {
+  if [[ $SYStime -gt $HWtime ]]; then
+   echo "WARNING: hwclock is $diff_time seconds past of system time"
+  else 
+   echo "WARNING: hwclock is $diff_time seconds ahead of system time"
+  fi
+   exit $WARNING
+}
+
+function critical () {
+  if [[ $SYStime -gt $HWtime ]]; then
+   echo "CRITICAL: hwclock is $diff_time seconds past of system time"
+  else
+   echo "CRITICAL: hwclock is $diff_time seconds ahead of system time"
+  fi
+   exit $CRITICAL
+}
+
+function check () {
+  if [[ $diff_time -ge 0 && $diff_time -le $warn ]] ; then
+    ok
+
+  elif [[ $diff_time -ge $warn && $diff_time -le $crit ]] ; then
+    warning
+
+  elif [[ $diff_time -ge $crit ]] ; then
+    critical
+  fi
+}
+
+# if hardware clock is in past of system time
+if [[ $SYStime -gt $HWtime ]]; then
+  let diff_time=$SYStime-$HWtime
+    check
+
+# if hardware clock is in future of system time
+elif [[ $HWtime -gt $SYStime ]]; then
+  let diff_time=$HWtime-$SYStime
+    check
+
+# or hwclock and system clock both are same
+else
+    ok
+fi
+
