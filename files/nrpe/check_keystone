@@ -103,10 +103,8 @@ class CheckKeystone(keystone.Client):
     # Map role ids to role names
     for role in role_names:
        if role.id in roles_per_id:
-         projects_with_role[role.name] = roles[role.id]
          # Genertate string for def csc_stats
-         return_string += " 'role_" + str(role.name) + "'=" + str(roles[role.id])
-    print('Projects with roles: ' + str( projects_with_roles))
+         return_string += " 'role_" + str(role.name) + "'=" + str(roles_per_id[role.id])
     return(return_string)
 
 def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
