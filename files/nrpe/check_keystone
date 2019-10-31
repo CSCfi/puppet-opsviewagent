@@ -79,10 +79,35 @@ class CheckKeystone(keystone.Client):
     uniq_users = list(set([user.email for user in users]))
     # filter CSC users
     csc_users  = filter(lambda user: '@csc.fi' in user, uniq_users)
+    # Get amount of projects per role
+    roles_string = self.projects_per_role()
 
-    return "'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s" % \
+    return "'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s %s" % \
            (len(projects), len(uniq_users), len(csc_users),
-            len(uniq_users) - len(csc_users))
+            len(uniq_users) - len(csc_users), roles_string)
+
+  def projects_per_role(self):
+    role_assignments_list = self.role_assignments.list()
+    roles_per_id = {}
+    # Calculate how many projects per roles
+    for role_assignments in role_assignments_list:
+       if 'project' in role_assignments.scope.keys():
+         if role_assignments.role['id'] in roles_per_id:
+           roles_per_id[role_assignments.role['id']] +=1
+         else:
+           roles_per_id[role_assignments.role['id']] = 1
+
+    role_names = self.roles.list()
+    projects_with_role = {}
+    return_string=''
+    # Map role ids to role names
+    for role in role_names:
+       if role.id in roles_per_id:
+         projects_with_role[role.name] = roles[role.id]
+         # Genertate string for def csc_stats
+         return_string += " 'role_" + str(role.name) + "'=" + str(roles[role.id])
+    print('Projects with roles: ' + str( projects_with_roles))
+    return(return_string)
 
 def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
   '''
@@ -138,7 +163,6 @@ def main():
                       help='Domain name for user query in CSC stats. '
                            'Defaults to \'users\'.')
   args = parser.parse_args()
-
   try:
     check = CheckKeystone(vars(args))
     check.check_service_endpoints()
