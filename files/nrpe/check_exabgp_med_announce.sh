@@ -17,7 +17,8 @@ usage ()
 {
     echo "Usage: $0 [OPTIONS]"
     echo " -h               Get help"
-    echo " -f               Log file to inspect"
+    echo " -f               Log file to inspect (legacy placeholder"
+    echo " -s               systemctl service (defaults to  exabgp.service)"
 }
 
 if (($# == 0)); then
@@ -25,7 +26,7 @@ if (($# == 0)); then
   exit 1
 fi
 
-while getopts ':f:a:h' OPTION
+while getopts ':f:a:h:s:' OPTION
 do
     case $OPTION in
         h)
@@ -33,7 +34,10 @@ do
             exit 0
             ;;
         f)
-            LOG_FILE_NAME=$OPTARG
+            LOG_FILE_NAME=${OPTARG}
+            ;;
+        s)
+            SERVICE_NAME=${OPTARG}
             ;;
         \?)
             usage
@@ -55,10 +59,13 @@ if [ "x" == "x$LOG_FILE_NAME" ]; then
   echo "option -f is required"
   exit ${STATE_WARNING}
 fi
+if [  -z "$SERVICE_NAME" ]; then
+SERVICE_NAME=exabgp.service
+fi
 
 RETURN_METRICS=""
-MED_STATUSES_RAW=$(sudo /bin/tail -${TAIL_LINES} ${LOG_FILE_NAME}| perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -10 | sort | uniq)
-                                                                                                                  #^^^^^^^^^^ more opportunism
+#MED_STATUSES_RAW=$(sudo journalctl -e  --unit ${SERVICE_NAME} /bin/tail -${TAIL_LINES} ${LOG_FILE_NAME}| perl -n -e'/(\S+)\/32.*med\s(\d+)\s/ && print "$1 $2\n"' | tail -10 | sort | uniq)
+MED_STATUSES_RAW=$(sudo journalctl -e -n10  --unit  ${SERVICE_NAME} | awk '/.*announce route/{print $15" "$17 }'|sort -u)
 if [ -z "${MED_STATUSES_RAW// }" ]; then
   echo "Did not get any data when trying to read ${LOG_FILE_NAME}."
   exit ${STATE_CRITICAL}
