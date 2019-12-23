@@ -35,7 +35,7 @@ do
 done
 shift "$((OPTIND-1))"
 
-IPTABLES_NEUTRON_STATUS="${iptables -L|grep -E '^nova-filter-top|^neutron-filter-top'|head -1|grep neutron}"
+IPTABLES_NEUTRON_STATUS="$(iptables -L|grep -E '^nova-filter-top|^neutron-filter-top'|head -1|grep neutron)"
 RETURNCODE=$?
 
 if [ "${RETURNCODE}" -ne 0 ]; then
