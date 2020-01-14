@@ -37,7 +37,7 @@ IPTABLES_NEUTRON_STATUS="$(sudo iptables --list --numeric|grep -E '^nova-filter-
 RETURNCODE=$?
 
 if [ "${RETURNCODE}" -ne 0 ]; then
-  echo "CRIT | Nonzero rc $RETURNCODE returned from iptables ordering check."
+  echo "CRIT | Customer firewall rules broken - ordering incorrect"
   exit ${STATE_CRITICAL}
 fi
 
