@@ -3,8 +3,6 @@
 # Rudimentary check for monitoring that neutron rules are at the very top
 # of iptables ordering.
 
-set -e
-
 STATE_OK=0
 STATE_WARNING=1
 STATE_CRITICAL=2
@@ -21,15 +19,15 @@ do
     case $OPTION in
         h)
             usage
-            exit ${STATE_WARNING}
+            exit ${STATE_UNKNOWN}
             ;;
         \?)
             usage
-            exit ${STATE_WARNING}
+            exit ${STATE_UNKNOWN}
             ;;
         *)
             usage
-            exit ${STATE_WARNING}
+            exit ${STATE_UNKNOWN}
             ;;
     esac
 done
@@ -39,7 +37,7 @@ IPTABLES_NEUTRON_STATUS="$(sudo iptables --list --numeric|grep -E '^nova-filter-
 RETURNCODE=$?
 
 if [ "${RETURNCODE}" -ne 0 ]; then
-  echo "Nonzero $RETURNCODE returned from iptables ordering check."
+  echo "CRIT | Nonzero rc $RETURNCODE returned from iptables ordering check."
   exit ${STATE_CRITICAL}
 fi
 
