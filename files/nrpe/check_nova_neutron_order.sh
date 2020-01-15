@@ -3,8 +3,6 @@
 # Rudimentary check for monitoring that neutron rules are at the very top
 # of iptables ordering.
 
-set -e
-
 STATE_OK=0
 STATE_WARNING=1
 STATE_CRITICAL=2
@@ -21,27 +19,27 @@ do
     case $OPTION in
         h)
             usage
-            exit ${STATE_WARNING}
+            exit ${STATE_UNKNOWN}
             ;;
         \?)
             usage
-            exit ${STATE_WARNING}
+            exit ${STATE_UNKNOWN}
             ;;
         *)
             usage
-            exit ${STATE_WARNING}
+            exit ${STATE_UNKNOWN}
             ;;
     esac
 done
 shift "$((OPTIND-1))"
 
-IPTABLES_NEUTRON_STATUS="$(iptables --list --numeric|grep -E '^nova-filter-top|^neutron-filter-top'|head -1|grep neutron)"
+IPTABLES_NEUTRON_STATUS="$(sudo iptables --list --numeric|grep -E '^nova-filter-top|^neutron-filter-top'|head -1|grep neutron)"
 RETURNCODE=$?
 
 if [ "${RETURNCODE}" -ne 0 ]; then
-  echo "Nonzero $RETURNCODE returned from iptables ordering check."
+  echo "CRIT: Customer firewall rules broken - ordering incorrect | "
   exit ${STATE_CRITICAL}
 fi
 
-echo "OK | ${IPTABLES_NEUTRON_STATUS}"
+echo "OK: ${IPTABLES_NEUTRON_STATUS} | "
 exit ${STATE_OK}
