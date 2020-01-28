@@ -625,7 +625,8 @@ class OSCapacityCheck():
     self.nova = nova.Client(APIVersion("2.12"), **creds)
 
   def check_vlan_capacity(self):
-    nets = self.neutron.list_networks()['networks']
+    vlan_params = { 'provider:network_type':'vlan', }
+    nets = self.neutron.list_networks(**vlan_params)['networks']
     vlans_in_use = len(nets)
 
     # Need to find how many are available
