@@ -624,10 +624,12 @@ class OSCapacityCheck():
                                         token=keystone.auth_token)
     self.nova = nova.Client(APIVersion("2.12"), **creds)
 
-  def check_vlan_capacity(self):
+  def check_network_capacity(self):
     vlan_params = { 'provider:network_type':'vlan', }
-    nets = self.neutron.list_networks(**vlan_params)['networks']
-    vlans_in_use = len(nets)
+    vxlan_params = { 'provider:network_type':'vxlan', }
+
+    vlans_in_use = len(self.neutron.list_networks(**vlan_params)['networks'])
+    vxlans_in_use = len(self.neutron.list_networks(**vxlan_params)['networks'])
 
     # Need to find how many are available
 
@@ -653,7 +655,7 @@ class OSCapacityCheck():
       vlan_range = vrange.split(':')
       vlans_total = int(vlans_total) + (int(vlan_range[2]) - int(vlan_range[1])) + 1
 
-    return { 'vlans_used': vlans_in_use, 'vlans_total': vlans_total }
+    return { 'vlans_used': vlans_in_use, 'vlans_total': vlans_total, 'vxlans_used': vxlans_in_use }
 
   def check_floating_ips(self):
     # This method needs to handle the case where there are no floating ips at all
@@ -775,7 +777,7 @@ class OSCapacityCheck():
   def execute(self):
     results = dict()
     try:
-      results.update(self.check_vlan_capacity())
+      results.update(self.check_network_capacity())
       if self.options.no_ping == False:
         results.update(self.check_floating_ips())
       results.update(self.check_host_aggregate_capacities())
@@ -788,7 +790,7 @@ class OSCapacityCheckNetwork(OSCapacityCheck):
   def execute(self):
     results = dict()
     try:
-      results.update(self.check_vlan_capacity())
+      results.update(self.check_network_capacity())
       if self.options.no_ping == False:
         results.update(self.check_floating_ips())
     except:
