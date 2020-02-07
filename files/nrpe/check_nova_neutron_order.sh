@@ -36,10 +36,15 @@ shift "$((OPTIND-1))"
 IPTABLES_NEUTRON_STATUS="$(sudo iptables --list --numeric|grep -E '^nova-filter-top|^neutron-filter-top'|head -1|grep neutron)"
 RETURNCODE=$?
 
-if [ "${RETURNCODE}" -ne 0 ]; then
+VIRSH_COUNT="$(ps -u qemu --no-headers | wc -l)"
+
+if [ "${RETURNCODE}" -ne 0 ] && [ "${VIRSH_COUNT}" -ne 0 ]; then
   echo "CRIT: Customer firewall rules broken - ordering incorrect | "
   exit ${STATE_CRITICAL}
+elif [ "${RETURNCODE}" -ne 0 ] && [ "${VIRSH_COUNT}" -eq 0 ]; then
+  echo "OK: Empty Node / NO Rules | "
+  exit ${STATE_OK}
+else
+  echo "OK: ${IPTABLES_NEUTRON_STATUS} | "
+  exit ${STATE_OK}
 fi
-
-echo "OK: ${IPTABLES_NEUTRON_STATUS} | "
-exit ${STATE_OK}
