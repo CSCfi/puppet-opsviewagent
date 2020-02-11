@@ -18,6 +18,11 @@ usage ()
     echo " -I <project_id>  Project ID"
 }
 
+if (($# == 0)); then
+  usage
+  exit 1
+fi
+
 while getopts 'hU:P:R:H:I:' OPTION
 do
     case $OPTION in
@@ -47,11 +52,6 @@ do
     esac
 done
 shift "$((OPTIND-1))"
-
-if (($# == 0)); then
-  usage
-  exit 1
-fi
 
 CURL="/bin/curl"
 COOKIE_FILE=~/horizontestcookie
