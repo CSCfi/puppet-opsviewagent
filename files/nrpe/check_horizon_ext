@@ -57,37 +57,45 @@ shift "$((OPTIND-1))"
 
 CURL="/bin/curl"
 COOKIE_FILE=~/horizontestcookie
+CSV_FILE=~/horizonresultfile
+DATE_START=$(date '+%Y-%m-%d')
+DATE_END=$DATE_START
+# Mandatory.
 HORIZON_USER="$HZ_TEST_USERNAME"
 HORIZON_PASSWORD="$HZ_TEST_PASSWORD"
 HORIZON_REGION="$HZ_TEST_REGION"
 HORIZON_HOST="$HZ_TEST_HOST"
-# If project ID is omitted, the check result will be based on whichever project Horizon picks for the user.
+# Optional. If project ID is omitted, the check result will be based on whichever project Horizon picks for the user.
 HORIZON_PROJECT_ID="$HZ_TEST_PROJECT_ID"
-CSV_FILE=~/horizonresultfile
-DATE_START=$(date '+%Y-%m-%d')
-DATE_END=$DATE_START
 
+# Start timer.
 LOGIN_START=$(date +%s.%6N)
 
+# Retrieve a CSRF token into the cookie file.
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s "$HORIZON_HOST/dashboard/auth/login/?next=/dashboard/"
 TOKEN=$(cat $COOKIE_FILE | grep csrftoken | sed 's/^.*csrftoken\s*//')
 
+# Sign in. Note! A bit confusingly, the region must be the keystone endpoint.
 DATA="username=$HORIZON_USER&password=$HORIZON_PASSWORD&region=$HORIZON_REGION&csrfmiddlewaretoken=$TOKEN"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s -d "$DATA" --referer "$HORIZON_HOST/dashboard/" "$HORIZON_HOST/dashboard/auth/login/"
 
+# Check that we actually got a proper login session.
 SESSIONID=$(cat $COOKIE_FILE | grep sessionid | sed 's/^.*sessionid\s*//')
 if [ "$SESSIONID" == "" ]; then
     echo "Error: sessionid not present on file $COOKIE_FILE"
     exit 1
 fi
 
+# Switch project context if interested in some particular project.
 TENANT_URL="$HORIZON_HOST/dashboard/auth/switch/$HORIZON_PROJECT_ID/?next=/dashboard/project/"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s "$TENANT_URL"
 
+# Get a usage report.
 URL="$HORIZON_HOST/dashboard/project/?start=$DATE_START&end=$DATE_END&format=csv"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output $CSV_FILE -s "$URL"
 RETURNCODE=$?
 
+# Halt timer, see how long it took.
 LOGIN_END=$(date +%s.%6N)
 LOGIN_TIME=$( echo "${LOGIN_END} - ${LOGIN_START}" | bc -l )
 
