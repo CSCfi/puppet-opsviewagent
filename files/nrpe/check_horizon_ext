@@ -14,7 +14,7 @@ usage ()
     echo " -U <username>    Username to use for Horizon login"
     echo " -P <password>    Password to use for Horizon login"
     echo " -R <URL>         Region URL"
-    echo " -H <hostname>    Hostname"
+    echo " -H <host>        Base host part for curl call URLs"
     echo " -I <project_id>  Project ID"
 }
 
@@ -23,7 +23,7 @@ do
     case $OPTION in
         h)
             usage
-            exit 0
+            exit ${STATE_UNKNOWN}
             ;;
         U)
             export HZ_TEST_USERNAME=$OPTARG
@@ -48,15 +48,19 @@ do
 done
 shift "$((OPTIND-1))"
 
+if (($# == 0)); then
+  usage
+  exit 1
+fi
 
 CURL="/bin/curl"
-COOKIE_FILE="~/horizontestcookie"
+COOKIE_FILE=~/horizontestcookie
 HORIZON_USER="$HZ_TEST_USERNAME"
 HORIZON_PASSWORD="$HZ_TEST_PASSWORD"
 HORIZON_REGION="$HZ_TEST_REGION"
 HORIZON_HOST="$HZ_TEST_HOST"
 HORIZON_PROJECT_ID="$HZ_TEST_PROJECT_ID"
-CSV_FILE="~/horizonresultfile"
+CSV_FILE=~/horizonresultfile
 DATE_START=$(date '+%Y-%m-%d')
 DATE_END=$DATE_START
 
