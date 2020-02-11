@@ -1,6 +1,8 @@
 #!/bin/bash
 #
 # Check if Horizon login works externally (outside of haproxy)
+#
+# Adapted from a script by https://ask.openstack.org/en/users/17403/amedeo-salvati/
 
 STATE_OK=0
 STATE_WARNING=1
