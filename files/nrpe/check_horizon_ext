@@ -1,0 +1,89 @@
+#!/bin/bash
+#
+# Check if Horizon login works externally (from internet, outside of haproxy)
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+
+usage ()
+{
+    echo "Usage: $0 [OPTIONS]"
+    echo " -h               Get help"
+    echo " -U <username>    Username to use for Horizon login"
+    echo " -P <password>    Password to use for Horizon login"
+    echo " -R <URL>         Region URL"
+    echo " -H <hostname>    Hostname"
+    echo " -I <project_id>  Project ID"
+}
+
+while getopts 'h:H:U:T:P:' OPTION
+do
+    case $OPTION in
+        h)
+            usage
+            exit 0
+            ;;
+        U)
+            export HZ_TEST_USERNAME=$OPTARG
+            ;;
+        P)
+            export HZ_TEST_PASSWORD=$OPTARG
+            ;;
+        R)
+            export HZ_TEST_REGION=$OPTARG
+            ;;
+        H)
+            export HZ_TEST_HOST=$OPTARG
+            ;;
+        I)
+            export HZ_TEST_PROJECT_ID=$OPTARG
+            ;;
+	*)
+            usage
+            exit ${STATE_UNKNOWN}
+            ;;
+    esac
+done
+shift "$((OPTIND-1))"
+
+
+CURL="/bin/curl"
+COOKIE_FILE="~/horizontestcookie"
+HORIZON_USER="$HZ_TEST_USERNAME"
+HORIZON_PASSWORD="$HZ_TEST_PASSWORD"
+HORIZON_REGION="$HZ_TEST_REGION"
+HORIZON_HOST="$HZ_TEST_HOST"
+HORIZON_PROJECT_ID="$HZ_TEST_PROJECT_ID"
+CSV_FILE="~/horizonresultfile"
+DATE_START=$(date '+%Y-%m-%d')
+DATE_END=$DATE_START
+
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s "$HORIZON_HOST/dashboard/auth/login/?next=/dashboard/"
+TOKEN=$(cat $COOKIE_FILE | grep csrftoken | sed 's/^.*csrftoken\s*//')
+
+DATA="username=$HORIZON_USER&password=$HORIZON_PASSWORD&region=$HORIZON_REGION&csrfmiddlewaretoken=$TOKEN"
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s -d "$DATA" --referer "$HORIZON_HOST/dashboard/" "$HORIZON_HOST/dashboard/auth/login/"
+
+SESSIONID=$(cat $COOKIE_FILE | grep sessionid | sed 's/^.*sessionid\s*//')
+if [ "$SESSIONID" == "" ]; then
+    echo "Error: sessionid not present on file $COOKIE_FILE"
+    exit 1
+fi
+
+TENANT_URL="$HORIZON_HOST/dashboard/auth/switch/$HORIZON_PROJECT_ID/?next=/dashboard/project/"
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s "$TENANT_URL"
+
+URL="$HORIZON_HOST/dashboard/project/?start=$DATE_START&end=$DATE_END&format=csv"
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output $CSV_FILE -s "$URL"
+
+RETURNCODE=$?
+
+if [ "${RETURNCODE}" -ne 0 ]; then
+  echo "CRIT: Unable to login to Horizon and perform actions | "
+  exit ${STATE_CRITICAL}
+else
+  echo "OK: ${IPTABLES_NEUTRON_STATUS} | TODO_LOGIN_TIMER "
+  exit ${STATE_OK}
+fi
