@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Check if Horizon login works externally (from internet, outside of haproxy)
+# Check if Horizon login works externally (outside of haproxy)
 
 STATE_OK=0
 STATE_WARNING=1
