@@ -65,6 +65,9 @@ CSV_FILE=~/horizonresultfile
 DATE_START=$(date '+%Y-%m-%d')
 DATE_END=$DATE_START
 
+# Bash builtin. Do not rename!
+SECONDS=0
+
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s "$HORIZON_HOST/dashboard/auth/login/?next=/dashboard/"
 TOKEN=$(cat $COOKIE_FILE | grep csrftoken | sed 's/^.*csrftoken\s*//')
 
@@ -82,13 +85,14 @@ $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null -s "$TENANT_URL"
 
 URL="$HORIZON_HOST/dashboard/project/?start=$DATE_START&end=$DATE_END&format=csv"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output $CSV_FILE -s "$URL"
-
 RETURNCODE=$?
+
+ELAPSED=$SECONDS
 
 if [ "${RETURNCODE}" -ne 0 ]; then
   echo "CRIT: Unable to login to Horizon and perform actions | "
   exit ${STATE_CRITICAL}
 else
-  echo "OK: Login to Horizon was successful | " # TODO_LOGIN_TIMER
+  echo "OK: Login to Horizon was successful |time=${ELAPSED}.0s"#TODO_LOGIN_TIMER
   exit ${STATE_OK}
 fi
