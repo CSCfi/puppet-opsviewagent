@@ -84,6 +84,6 @@ if [ "${RETURNCODE}" -ne 0 ]; then
   echo "CRIT: Unable to login to Horizon and perform actions | "
   exit ${STATE_CRITICAL}
 else
-  echo "OK: ${IPTABLES_NEUTRON_STATUS} | TODO_LOGIN_TIMER "
+  echo "OK: Login to Horizon was successful | " # TODO_LOGIN_TIMER
   exit ${STATE_OK}
 fi
