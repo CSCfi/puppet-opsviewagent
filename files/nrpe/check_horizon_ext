@@ -96,3 +96,6 @@ else
   echo "OK: Login to Horizon was successful |time=${LOGIN_TIME}s"
   exit ${STATE_OK}
 fi
+
+rm $COOKIE_FILE
+rm $CSV_FILE
