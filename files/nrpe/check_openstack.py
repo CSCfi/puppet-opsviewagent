@@ -288,15 +288,35 @@ class OSInstanceCheck():
     if len(self.nova.floating_ips.list()) != 0:
       logging.warn('All floating IPs of instance creation test tenant were not deleted.') 
 
+  def time_diff(self,time_one):
+    now = time.time()
+    diff_ms = int((now - time_one) * 1000)
+    return (now, diff_ms)
+
   def execute(self):
+    time_last = time.time()
+    results = dict()
     try:
       self.delete_orphaned_instances()
+      time_last, time_diff = self.time_diff(time_last)
+      results['10_delete_instance_ms'] = time_diff
       self.delete_orphaned_floating_ips()
+      time_last, time_diff = self.time_diff(time_last)
+      results['20_delete_floatingip_ms'] = time_diff
       self.instance_create()
+      time_last, time_diff = self.time_diff(time_last)
+      results['30_create_instance_ms'] = time_diff
       self.wait_instance_is_available()
+      time_last, time_diff = self.time_diff(time_last)
+      results['40_instance_available_ms'] = time_diff
       if self.options.no_ping == False:
       	self.instance_attach_floating_ip()
+	time_last, time_diff = self.time_diff(time_last)
+        results['50_attach_floatingip_ms'] = time_diff
       	self.floating_ip_ping()
+        time_last, time_diff = self.time_diff(time_last)
+        results['60_ping_instance_ms'] = time_diff
+
     except:
       raise
     finally:
@@ -305,7 +325,12 @@ class OSInstanceCheck():
       # takes tool long or fails, and that this might break things.
       # Now we run it last.
       self.floating_ip_delete()
+      time_last, time_diff = self.time_diff(time_last)
+      results['70_delete_floatingip_ms'] = time_diff
       self.instance_destroy()
+      time_last, time_diff = self.time_diff(time_last)
+      results['80_destroy_instance_ms'] = time_diff
+    return results
 
 class OSGhostInstanceCheck():
   '''
