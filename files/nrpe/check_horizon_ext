@@ -13,7 +13,7 @@ usage ()
     echo " -h               Get help"
     echo " -U <username>    Username to use for Horizon login"
     echo " -P <password>    Password to use for Horizon login"
-    echo " -R <URL>         Region URL"
+    echo " -R <URL>         Region URL (Keystone endpoint)"
     echo " -H <host>        Base host part for curl call URLs"
     echo " -I <project_id>  Project ID"
 }
