@@ -100,6 +100,28 @@ class LostVolumesException(CheckOpenStackException):
 class VolumeErrorException(CheckOpenStackException):
   msg_fmt = "Volumes in error state %(msgs)s"
 
+class TimeStateMachine():
+  '''
+  This class can be used to mesure how long it takes to run a function.
+  Example how to use:
+  class OSMyFunction(TimeStateMachine):
+    def long_run(self)
+      sleep(10)
+    def execute(self):
+      long_run(self)
+      b_time_ms = self.time_diff()
+      long_run(self)
+      c_time_ms = self.time_diff()
+
+  '''
+  time_last = time.time()
+
+  def time_diff(self):
+    now = time.time()
+    diff_ms = int((now - self.time_last) * 1000)
+    self.time_last = now
+    return diff_ms
+
 class OSCredentials(object):
   '''
   Read authentication credentials from environment or optionParser
@@ -219,9 +241,9 @@ class OSVolumeCheck(cinder.Client):
     finally:
       self.volume_destroy()
 
-class OSInstanceCheck():
+class OSInstanceCheck(TimeStateMachine):
   '''
-  Create instance and destroy the instance on OpenStack
+  Create, ping and destroy an instance in OpenStack
   '''
   options = dict()
   
@@ -289,14 +311,22 @@ class OSInstanceCheck():
       logging.warn('All floating IPs of instance creation test tenant were not deleted.') 
 
   def execute(self):
+    results = dict()
     try:
       self.delete_orphaned_instances()
+      results['10_delete_instance_ms'] = self.time_diff()
       self.delete_orphaned_floating_ips()
+      results['20_delete_floatingip_ms'] = self.time_diff()
       self.instance_create()
+      results['30_create_instance_ms'] = self.time_diff()
       self.wait_instance_is_available()
+      results['40_instance_available_ms'] = self.time_diff()
       if self.options.no_ping == False:
-      	self.instance_attach_floating_ip()
-      	self.floating_ip_ping()
+        self.instance_attach_floating_ip()
+        results['50_attach_floatingip_ms'] = self.time_diff()
+        self.floating_ip_ping()
+        results['60_ping_instance_ms'] = self.time_diff()
+
     except:
       raise
     finally:
@@ -305,7 +335,11 @@ class OSInstanceCheck():
       # takes tool long or fails, and that this might break things.
       # Now we run it last.
       self.floating_ip_delete()
+      results['70_delete_floatingip_ms'] = self.time_diff()
       self.instance_destroy()
+      results['80_destroy_instance_ms'] = self.time_diff()
+    return results
+
 
 class OSGhostInstanceCheck():
   '''
