@@ -102,8 +102,8 @@ class VolumeErrorException(CheckOpenStackException):
 
 class TimeStateMachine():
   '''
-  This class can be used to keep messure how long it takes to run
-  a function. Example how to use:
+  This class can be used to mesure how long it takes to run a function.
+  Example how to use:
   class OSMyFunction(TimeStateMachine):
     def long_run(self)
       sleep(10)
@@ -243,7 +243,7 @@ class OSVolumeCheck(cinder.Client):
 
 class OSInstanceCheck(TimeStateMachine):
   '''
-  Create instance and destroy the instance on OpenStack
+  Create, ping and destroy an instance in OpenStack
   '''
   options = dict()
   
