@@ -16,14 +16,20 @@ CRIT=45
 
 usage ()
 {
-    echo "Usage: $0 [OPTIONS]"
-    echo " -h               Get help"
-    echo " -U <username>    Username to use for Horizon login"
-    echo " -P <password>    Password to use for Horizon login"
-    echo " -R <URL>         Region URL (Keystone endpoint)"
-    echo " -H <host>        Base host part for curl call URLs"
-    echo " -I <project_id>  Project ID"
-    echo " -T <seconds>     Timeout"
+  echo "Usage: $0 [OPTIONS]"
+  echo " -h               Get help"
+  echo " -U <username>    Username to use for Horizon login"
+  echo " -P <password>    Password to use for Horizon login"
+  echo " -R <URL>         Region URL (Keystone endpoint)"
+  echo " -H <host>        Base host part for curl call URLs"
+  echo " -I <project_id>  Project ID"
+  echo " -T <seconds>     Timeout"
+}
+
+cleanup ()
+{
+  rm -f $COOKIE_FILE
+  rm -f $CSV_FILE
 }
 
 if (($# == 0)); then
@@ -98,6 +104,7 @@ $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME
 SESSIONID=$(cat $COOKIE_FILE | grep sessionid | sed 's/^.*sessionid\s*//')
 if [ "$SESSIONID" == "" ]; then
   echo "CRIT: Session ID not present on file $COOKIE_FILE |"
+  cleanup
   exit ${STATE_CRITICAL}
 fi
 
@@ -115,8 +122,7 @@ LOGIN_END=$(date +%s.%6N)
 LOGIN_TIME=$(echo "${LOGIN_END} - ${LOGIN_START}" | bc -l)
 LOGIN_TIME_INT=$(echo "${LOGIN_TIME}"|awk -F'.' '{print $1}')
 
-rm -f $COOKIE_FILE
-rm -f $CSV_FILE
+cleanup
 
 if [[ "${RETURNCODE}" -ne 0 ]]; then
   echo "CRIT: Unable to login to Horizon and perform actions | "
