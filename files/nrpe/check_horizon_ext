@@ -9,6 +9,11 @@ STATE_WARNING=1
 STATE_CRITICAL=2
 STATE_UNKNOWN=3
 
+# Defaults: Curl timeout plus warn/crit thresholds
+MAX_TIME=60
+WARN=30
+CRIT=45
+
 usage ()
 {
     echo "Usage: $0 [OPTIONS]"
@@ -26,7 +31,7 @@ if (($# == 0)); then
   exit 1
 fi
 
-while getopts 'hU:P:R:H:I:' OPTION
+while getopts 'hU:P:R:H:I:w:c:' OPTION
 do
     case $OPTION in
         h)
@@ -51,6 +56,12 @@ do
         T)
             export MAX_TIME=$OPTARG
             ;;
+        w)
+            export WARN=$OPTARG
+            ;;
+        c)
+            export CRIT=$OPTARG
+            ;;
 	*)
             usage
             exit ${STATE_UNKNOWN}
@@ -60,7 +71,6 @@ done
 shift "$((OPTIND-1))"
 
 CURL="/bin/curl"
-MAX_TIME=60
 COOKIE_FILE=$(/usr/bin/mktemp)
 CSV_FILE=$(/usr/bin/mktemp)
 DATE_START=$(date '+%Y-%m-%d')
@@ -107,9 +117,18 @@ LOGIN_TIME=$( echo "${LOGIN_END} - ${LOGIN_START}" | bc -l )
 if [ "${RETURNCODE}" -ne 0 ]; then
   echo "CRIT: Unable to login to Horizon and perform actions | "
   exit ${STATE_CRITICAL}
-else
+elif [ ${LOGIN_TIME} -gt $CRIT ]; then
+  echo "CRIT: - Login time exceeded $CRIT threshold |time=${LOGIN_TIME}s"
+  exit ${STATE_CRITICAL}
+elif [ ${LOGIN_TIME} -gt $WARN ]; then
+  echo "WARN: - Login time exceeded $WARN threshold |time=${LOGIN_TIME}s"
+  exit ${STATE_WARNING}
+elif [ "${RETURNCODE}" -eq 0 ]; then
   echo "OK: Login to Horizon was successful |time=${LOGIN_TIME}s"
   exit ${STATE_OK}
+else
+  echo "UNKNOWN: Script should not end up in this state."
+  exit ${STATE_UNKNOWN}
 fi
 
 rm -f $COOKIE_FILE
