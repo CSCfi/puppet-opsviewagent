@@ -112,24 +112,25 @@ RETURNCODE=$?
 
 # Halt timer, see how long it took.
 LOGIN_END=$(date +%s.%6N)
-LOGIN_TIME=$( echo "${LOGIN_END} - ${LOGIN_START}" | bc -l )
+LOGIN_TIME=$(echo "${LOGIN_END} - ${LOGIN_START}" | bc -l)
+LOGIN_TIME_INT=$(echo "${LOGIN_TIME}"|awk -F'.' '{print $1}')
 
-if [ "${RETURNCODE}" -ne 0 ]; then
+rm -f $COOKIE_FILE
+rm -f $CSV_FILE
+
+if [[ "${RETURNCODE}" -ne 0 ]]; then
   echo "CRIT: Unable to login to Horizon and perform actions | "
   exit ${STATE_CRITICAL}
-elif [ ${LOGIN_TIME} -gt $CRIT ]; then
-  echo "CRIT: - Login time exceeded $CRIT threshold |time=${LOGIN_TIME}s"
+elif [[ "${LOGIN_TIME_INT}" -gt "${CRIT}" ]]; then
+  echo "CRIT: - Login time exceeded ${CRIT} threshold |time=${LOGIN_TIME}s"
   exit ${STATE_CRITICAL}
-elif [ ${LOGIN_TIME} -gt $WARN ]; then
-  echo "WARN: - Login time exceeded $WARN threshold |time=${LOGIN_TIME}s"
+elif [[ "${LOGIN_TIME_INT}" -gt "${WARN}" ]]; then
+  echo "WARN: - Login time exceeded ${WARN} threshold |time=${LOGIN_TIME}s"
   exit ${STATE_WARNING}
-elif [ "${RETURNCODE}" -eq 0 ]; then
+elif [[ "${RETURNCODE}" -eq 0 ]]; then
   echo "OK: Login to Horizon was successful |time=${LOGIN_TIME}s"
   exit ${STATE_OK}
 else
   echo "UNKNOWN: Script should not end up in this state."
   exit ${STATE_UNKNOWN}
 fi
-
-rm -f $COOKIE_FILE
-rm -f $CSV_FILE
