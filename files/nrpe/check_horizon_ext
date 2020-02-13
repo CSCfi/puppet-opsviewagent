@@ -97,8 +97,8 @@ $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME
 # Check that we actually got a proper login session.
 SESSIONID=$(cat $COOKIE_FILE | grep sessionid | sed 's/^.*sessionid\s*//')
 if [ "$SESSIONID" == "" ]; then
-    echo "Error: sessionid not present on file $COOKIE_FILE"
-    exit 1
+  echo "CRIT: Session ID not present on file $COOKIE_FILE |"
+  exit ${STATE_CRITICAL}
 fi
 
 # Switch project context if interested in some particular project.
