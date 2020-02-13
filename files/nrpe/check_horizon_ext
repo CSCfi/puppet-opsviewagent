@@ -56,8 +56,8 @@ done
 shift "$((OPTIND-1))"
 
 CURL="/bin/curl"
-COOKIE_FILE=~/horizontestcookie
-CSV_FILE=~/horizonresultfile
+COOKIE_FILE=$(/usr/bin/mktemp)
+CSV_FILE=$(/usr/bin/mktemp)
 DATE_START=$(date '+%Y-%m-%d')
 DATE_END=$DATE_START
 # Mandatory.
@@ -107,5 +107,5 @@ else
   exit ${STATE_OK}
 fi
 
-rm $COOKIE_FILE
-rm $CSV_FILE
+rm -f $COOKIE_FILE
+rm -f $CSV_FILE
