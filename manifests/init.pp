@@ -61,13 +61,11 @@ class opsviewagent (
   Package['nrpe-daemon'] -> File['nrpe.cfg']
   Package['nrpe-daemon'] -> File['nrpe-configs']
   Package['nrpe-daemon'] -> File['nrpe-scripts']
-  Package['nrpe-daemon'] -> File['nrpe-unitfile']
   Package['nrpe-daemon'] -> Service['nrpe-daemon-service']
   Package['nrpe-daemon'] -> Opsviewagent::Nrpe_command<||>
   User[$nagios_user] -> Package['nrpe-daemon']
   File['opsview-nagios-dir'] -> File['opsview-libexec-dir']
   File['opsview-libexec-dir'] -> File['nrpe-scripts']
-  File['nrpe-unitfile'] ~> Service['nrpe-daemon-service']
   File['nrpe-scripts'] ~> Service['nrpe-daemon-service']
   File['nrpe-configs'] ~> Service['nrpe-daemon-service']
   File['nrpe.cfg'] ~> Service['nrpe-daemon-service']
