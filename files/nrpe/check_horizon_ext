@@ -119,7 +119,7 @@ $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME
 # Another approach would be to interpret curl output if you're keen on parsing XML.
 URL="$HORIZON_HOST/dashboard/project/?start=$DATE_START&end=$DATE_END&format=csv"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output $CSV_FILE --max-time $MAX_TIME -s "$URL"
-grep 'Usage Report' $CSV_FILE
+grep -q 'Usage Report' $CSV_FILE
 RETURNCODE=$?
 
 # Halt timer, see how long it took.
