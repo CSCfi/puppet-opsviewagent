@@ -199,21 +199,4 @@ class opsviewagent (
     group   => $nagios_user,
   }
 
-  file { 'nrpe-unitfile':
-    ensure  => file,
-    path    => '/usr/lib/systemd/system/nrpe.service',
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0644',
-    content => template('opsviewagent/nrpe.service.erb'),
-  }
-
-  exec { 'systemctl daemon-reload on nrpe unitfile change':
-    command     => 'systemctl daemon-reload',
-    refreshonly => true,
-    logoutput   => on_failure,
-    subscribe   => File['nrpe-unitfile'],
-    notify      => Service['nrpe-daemon-service'],
-  }
-
 }
