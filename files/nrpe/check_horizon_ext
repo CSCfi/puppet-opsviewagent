@@ -96,11 +96,13 @@ LOGIN_START=$(date +%s.%6N)
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s "$HORIZON_HOST/dashboard/auth/login/?next=/dashboard/"
 TOKEN=$(cat $COOKIE_FILE | grep csrftoken | sed 's/^.*csrftoken\s*//')
 
-# Sign in. Note! A bit confusingly, the region must be the keystone endpoint.
+# Sign in. Note! The region must match the endpoint defined in AVAILABLE_REGIONS in Horizon's local_settings config.
 DATA="username=$HORIZON_USER&password=$HORIZON_PASSWORD&region=$HORIZON_REGION&csrfmiddlewaretoken=$TOKEN"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s -d "$DATA" --referer "$HORIZON_HOST/dashboard/" "$HORIZON_HOST/dashboard/auth/login/"
 
-# Check that we actually got a proper login session.
+# Check that we got a session. Note! This proves only that Django successfully created a session
+# after a POST was done with the correct CSRF token. It does not prove that the login worked.
+# If the login failed, Django still creates a session; it just considers it anonymous.
 SESSIONID=$(cat $COOKIE_FILE | grep sessionid | sed 's/^.*sessionid\s*//')
 if [ "$SESSIONID" == "" ]; then
   echo "CRIT: Session ID not present on file $COOKIE_FILE |"
@@ -112,9 +114,12 @@ fi
 TENANT_URL="$HORIZON_HOST/dashboard/auth/switch/$HORIZON_PROJECT_ID/?next=/dashboard/project/"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s "$TENANT_URL"
 
-# Get a usage report.
+# Get a usage report and see that it contains expected content.
+# This is the actual proof that the login worked end-to-end.
+# Another approach would be to interpret curl output if you're keen on parsing XML.
 URL="$HORIZON_HOST/dashboard/project/?start=$DATE_START&end=$DATE_END&format=csv"
 $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output $CSV_FILE --max-time $MAX_TIME -s "$URL"
+grep 'Usage Report' $CSV_FILE
 RETURNCODE=$?
 
 # Halt timer, see how long it took.
@@ -122,6 +127,7 @@ LOGIN_END=$(date +%s.%6N)
 LOGIN_TIME=$(echo "${LOGIN_END} - ${LOGIN_START}" | bc -l)
 LOGIN_TIME_INT=$(echo "${LOGIN_TIME}"|awk -F'.' '{print $1}')
 
+# Remove cookie and result files
 cleanup
 
 if [[ "${RETURNCODE}" -ne 0 ]]; then
