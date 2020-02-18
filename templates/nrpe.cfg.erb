@@ -149,6 +149,7 @@ command[check_postgres]=/usr/lib64/nagios/plugins/check_postgres $ARG1$
 command[check_raid]=/usr/lib64/nagios/plugins/check_raid $ARG1$
 command[check_time_skew]=/usr/lib64/nagios/plugins/check_time_skew $ARG1$
 command[check_cpu]=<%= @nrpe_local_script_path %>/check_cpu $ARG1$
+command[check_http]=/usr/lib64/nagios/plugins/check_http $ARG1$
 
 # INCLUDE CONFIG DIRECTORY
 # This directive allows you to include definitions from config files (with a

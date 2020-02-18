@@ -1,0 +1,148 @@
+#!/bin/bash
+#
+# Check if Horizon login works externally (outside of haproxy)
+#
+# Adapted from a script by https://ask.openstack.org/en/users/17403/amedeo-salvati/
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+
+# Defaults: Curl timeout plus warn/crit thresholds
+MAX_TIME=60
+WARN=30
+CRIT=45
+
+usage ()
+{
+  echo "Usage: $0 [OPTIONS]"
+  echo " -h               Get help"
+  echo " -U <username>    Username to use for Horizon login"
+  echo " -P <password>    Password to use for Horizon login"
+  echo " -R <URL>         Region URL (Keystone endpoint)"
+  echo " -H <host>        Base host part for curl call URLs"
+  echo " -I <project_id>  Project ID"
+  echo " -T <seconds>     Timeout"
+}
+
+cleanup ()
+{
+  rm -f $COOKIE_FILE
+  rm -f $CSV_FILE
+}
+
+if (($# == 0)); then
+  usage
+  exit 1
+fi
+
+while getopts 'hU:P:R:H:I:w:c:' OPTION
+do
+    case $OPTION in
+        h)
+            usage
+            exit ${STATE_UNKNOWN}
+            ;;
+        U)
+            export HZ_TEST_USERNAME=$OPTARG
+            ;;
+        P)
+            export HZ_TEST_PASSWORD=$OPTARG
+            ;;
+        R)
+            export HZ_TEST_REGION=$OPTARG
+            ;;
+        H)
+            export HZ_TEST_HOST=$OPTARG
+            ;;
+        I)
+            export HZ_TEST_PROJECT_ID=$OPTARG
+            ;;
+        T)
+            export MAX_TIME=$OPTARG
+            ;;
+        w)
+            export WARN=$OPTARG
+            ;;
+        c)
+            export CRIT=$OPTARG
+            ;;
+	*)
+            usage
+            exit ${STATE_UNKNOWN}
+            ;;
+    esac
+done
+shift "$((OPTIND-1))"
+
+CURL="/bin/curl"
+COOKIE_FILE=$(/usr/bin/mktemp)
+CSV_FILE=$(/usr/bin/mktemp)
+DATE_START=$(date '+%Y-%m-%d')
+DATE_END=$DATE_START
+# Mandatory.
+HORIZON_USER="$HZ_TEST_USERNAME"
+HORIZON_PASSWORD="$HZ_TEST_PASSWORD"
+HORIZON_REGION="$HZ_TEST_REGION"
+HORIZON_HOST="$HZ_TEST_HOST"
+# Optional. If project ID is omitted, the check result will be based on whichever project Horizon picks for the user.
+HORIZON_PROJECT_ID="$HZ_TEST_PROJECT_ID"
+
+# Start timer.
+LOGIN_START=$(date +%s.%6N)
+
+# Retrieve a CSRF token into the cookie file.
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s "$HORIZON_HOST/dashboard/auth/login/?next=/dashboard/"
+TOKEN=$(cat $COOKIE_FILE | grep csrftoken | sed 's/^.*csrftoken\s*//')
+
+# Sign in. Note! The region must match the endpoint defined in AVAILABLE_REGIONS in Horizon's local_settings config.
+DATA="username=$HORIZON_USER&password=$HORIZON_PASSWORD&region=$HORIZON_REGION&csrfmiddlewaretoken=$TOKEN"
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s -d "$DATA" --referer "$HORIZON_HOST/dashboard/" "$HORIZON_HOST/dashboard/auth/login/"
+
+# Check that we got a session. Note! This proves only that Django successfully created a session
+# after a POST was done with the correct CSRF token. It does not prove that the login worked.
+# If the login failed, Django still creates a session; it just considers it anonymous.
+SESSIONID=$(cat $COOKIE_FILE | grep sessionid | sed 's/^.*sessionid\s*//')
+if [ "$SESSIONID" == "" ]; then
+  echo "CRIT: Session ID not present on file $COOKIE_FILE |"
+  cleanup
+  exit ${STATE_CRITICAL}
+fi
+
+# Switch project context if interested in some particular project.
+TENANT_URL="$HORIZON_HOST/dashboard/auth/switch/$HORIZON_PROJECT_ID/?next=/dashboard/project/"
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s "$TENANT_URL"
+
+# Get a usage report and see that it contains expected content.
+# This is the actual proof that the login worked end-to-end.
+# Another approach would be to interpret curl output if you're keen on parsing XML.
+URL="$HORIZON_HOST/dashboard/project/?start=$DATE_START&end=$DATE_END&format=csv"
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output $CSV_FILE --max-time $MAX_TIME -s "$URL"
+grep -q 'Usage Report' $CSV_FILE
+RETURNCODE=$?
+
+# Halt timer, see how long it took.
+LOGIN_END=$(date +%s.%6N)
+LOGIN_TIME=$(echo "${LOGIN_END} - ${LOGIN_START}" | bc -l)
+LOGIN_TIME_INT=$(echo "${LOGIN_TIME}"|awk -F'.' '{print $1}')
+
+# Remove cookie and result files
+cleanup
+
+if [[ "${RETURNCODE}" -ne 0 ]]; then
+  echo "CRIT: Unable to login to Horizon and perform actions | "
+  exit ${STATE_CRITICAL}
+elif [[ "${LOGIN_TIME_INT}" -gt "${CRIT}" ]]; then
+  echo "CRIT: - Login time exceeded ${CRIT} threshold |time=${LOGIN_TIME}s"
+  exit ${STATE_CRITICAL}
+elif [[ "${LOGIN_TIME_INT}" -gt "${WARN}" ]]; then
+  echo "WARN: - Login time exceeded ${WARN} threshold |time=${LOGIN_TIME}s"
+  exit ${STATE_WARNING}
+elif [[ "${RETURNCODE}" -eq 0 ]]; then
+  echo "OK: Login to Horizon was successful |time=${LOGIN_TIME}s"
+  exit ${STATE_OK}
+else
+  echo "UNKNOWN: Script should not end up in this state."
+  exit ${STATE_UNKNOWN}
+fi
