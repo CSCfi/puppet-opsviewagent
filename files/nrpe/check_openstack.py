@@ -130,7 +130,7 @@ class OSCredentials(object):
   cred = dict()
   keystone_cred = dict()
   keystone_v3_cred = dict()
-  
+
   def __init__(self, options):
     self.environment_credentials()
     self.options_credentials(options)
@@ -185,7 +185,7 @@ class OSCredentials(object):
     for key in ['auth_url', 'username', 'password', 'project_name', 'user_domain_name', 'project_domain_name']:
       if not key in self.keystone_v3_cred:
         raise CredentialsMissingException(key=key)
-  
+
   def provide(self):
     return self.cred
 
@@ -206,7 +206,7 @@ class OSVolumeCheck(cinder.Client):
   Create cinder volume and destroy the volume on OpenStack
   '''
   options = dict()
-  
+
   def __init__(self, options):
     self.options = options
     creds = OSCredentials(options).provide()
@@ -220,7 +220,7 @@ class OSVolumeCheck(cinder.Client):
   def volume_destroy(self):
     if hasattr(self, 'volume'):
       self.volume.delete()
-  
+
   def volume_status(self):
     volume = self.volumes.get(self.volume.id)
     return volume._info['status']
@@ -256,7 +256,7 @@ class OSInstanceCheck(TimeStateMachine):
   Create, ping and destroy an instance in OpenStack
   '''
   options = dict()
-  
+
   def __init__(self, options):
     self.options = options
     creds = OSCredentials(options).provide()
@@ -265,7 +265,7 @@ class OSInstanceCheck(TimeStateMachine):
   def instance_status(self):
     instance = self.nova.servers.get(self.instance.id)
     return instance._info['status']
-  
+
   def instance_create(self):
     image   = self.nova.images.find(name=self.options.instance_image)
     flavor  = self.nova.flavors.find(name=self.options.instance_flavor)
@@ -273,15 +273,15 @@ class OSInstanceCheck(TimeStateMachine):
     self.instance = self.nova.servers.create(name=self.options.instance_name,
               image=image.id, flavor=flavor.id,
               nics=[ {'net-id': network.id} ])
-  
+
   def instance_destroy(self):
     if hasattr(self, 'instance'):
       self.nova.servers.delete(self.instance.id)
-  
+
   def instance_attach_floating_ip(self):
     self.fip = self.nova.floating_ips.create(self.options.fip_pool)
     self.instance.add_floating_ip(self.fip)
-    
+
   def instance_detach_floating_ip(self):
     if hasattr(self, 'fip'):
       self.instance.remove_floating_ip(self.fip.ip)
@@ -290,7 +290,7 @@ class OSInstanceCheck(TimeStateMachine):
   def floating_ip_delete(self):
     if hasattr(self, 'fip'):
       self.nova.floating_ips.delete(self.fip)
-    
+
   def floating_ip_ping(self):
     count = self.options.ping_count
     interval = self.options.ping_interval
@@ -298,7 +298,7 @@ class OSInstanceCheck(TimeStateMachine):
      status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
      if status != 0:
       raise InstanceNotPingableException(status=status)
-    
+
   def wait_instance_is_available(self):
     inc = 0
     while (inc < self.options.wait):
@@ -308,7 +308,7 @@ class OSInstanceCheck(TimeStateMachine):
       if status == STATUS_INSTANCE_ACTIVE:
         return
     raise InstanceNotAvailableException(status=status)
-  
+
   def delete_orphaned_instances(self):
     search = dict(name = self.options.instance_name)
     for instance in self.nova.servers.list(search_opts=search):
@@ -318,7 +318,7 @@ class OSInstanceCheck(TimeStateMachine):
     for tenant_ip in self.nova.floating_ips.list():
       self.nova.floating_ips.delete(tenant_ip)
     if len(self.nova.floating_ips.list()) != 0:
-      logging.warn('All floating IPs of instance creation test tenant were not deleted.') 
+      logging.warn('All floating IPs of instance creation test tenant were not deleted.')
 
   def execute(self):
     results = dict()
@@ -413,7 +413,7 @@ class OSGhostInstanceCheck():
     '''
     ssh to every host, check the vms running with virsh list
     '''
-    
+
     # --all shows all vms not just the running ones
     # --name omits the table headers just prints a list of vm names
     virshList = 'sudo virsh list --all --name'
@@ -470,7 +470,7 @@ class OSGhostInstanceCheck():
       if not virshInstance in novaInstances:
         logging.info(virshInstance[0] + ' not found from nova')
         novaGhosts.append(virshInstance)
-    
+
     if virshGhosts or novaGhosts:
       raise LostInstancesException(virshGhosts=virshGhosts,
                                    novaGhosts=novaGhosts)
@@ -571,7 +571,7 @@ class OSGhostVolumeCheck(cinder.Client):
       if not lvmVolume in cinderVolumes:
         logging.info(lvmVolume[0] + ' not found from cinder')
         novaGhosts.append(virshInstance)
-    
+
     if cinderGhosts or lvmGhosts:
       raise LostVolumesException(cinderGhosts=cinderGhosts,
                                  lvmGhosts=lvmGhosts)
@@ -607,7 +607,7 @@ class OSGhostNodeCheck():
       raise HostsEnabledAndDownException(msgs=msgs)
     else:
       logging.info('No enabled hosts are down')
-  
+
   def execute(self):
     try:
       self.check_bad_hosts()
@@ -655,18 +655,9 @@ class OSCapacityCheck():
   def __init__(self, options):
     self.options = options
 
-    ''' Keystone has different credential dict '''
-    keystone_creds = OSCredentials(options).provide_keystone()
-    keystone = keystoneclient.Client(**keystone_creds)
-    keystone.authenticate()
-
-    ''' Credentials for everything else '''
-    creds = OSCredentials(options).provide()
-    neutron_endpoint = keystone.service_catalog.url_for(service_type='network',
-                                                        endpoint_type='publicURL')
-    self.neutron = neutronclient.Client('2.0', endpoint_url=neutron_endpoint,
-                                        token=keystone.auth_token)
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    #self.keystone = keystoneclientv3.Client(session=keystone_session_v3(options))
+    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def check_network_capacity(self):
     vlan_params = { 'provider:network_type':'vlan', }
@@ -1073,14 +1064,14 @@ def parse_command_line():
   parser.add_option("-l", "--floating_ip_pool", dest='fip_pool', help='floating ip pool name')
   parser.add_option("-c", "--ping_count", dest='ping_count', help='number of ping packets')
   parser.add_option("-I", "--ping_interval", dest='ping_interval', help='seconds interval between ping packets')
-  
+
   parser.add_option("-v", "--volume_name", dest='volume_name', help='test volume name')
   parser.add_option("-s", "--volume_size", dest='volume_size', help='test volume size')
   parser.add_option("-w", "--wait", dest='wait', type='int', help='max seconds to wait for creation')
   parser.add_option("-z", "--no-ping", dest='no_ping', action='store_true', help='no ping test')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
   parser.add_option("-k", "--only-windows", dest='only_windows', action='store_true', help='Option to only print windows aggregate OSCapacity as a way to combat 1024 character limit in check_nrpe')
-  
+
   (options, args) = parser.parse_args()
 
   if not options.volume_name:
@@ -1113,7 +1104,7 @@ def parse_command_line():
 
   if len(args) == 0:
     sys.exit(NAGIOS_STATE_UNKNOWN, 'Command argument missing! Use --help.')
-  
+
   return (options, args)
 
 def execute_check(options, args):
@@ -1146,12 +1137,12 @@ def execute_check(options, args):
   if not command in os_check:
     print 'Unknown command argument! Use --help.'
     sys.exit(NAGIOS_STATE_UNKNOWN)
-  
+
   return os_check[command](options).execute()
 
 def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
   '''
-  Exits with the specified exit_code and outputs any stats in the format 
+  Exits with the specified exit_code and outputs any stats in the format
   nagios/opsview expects.
   '''
   time_end = time.time() - time_start
@@ -1175,7 +1166,7 @@ def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
   for key in stats:
     output += ' ' + key + '=' + str(stats[key])
   print(output)
-  
+
   sys.exit(exit_code)
 
 def main():
