@@ -149,9 +149,11 @@ class OSCredentials(object):
       self.keystone_cred['tenant_name'] = os.environ['OS_TENANT_NAME']
       # Keystone v3 only entries
       self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
-      self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
+      self.keystone_v3_cred['username']    = os.environ['OS_USERNAME']
       self.keystone_v3_cred['password']    = os.environ['OS_PASSWORD']
-      self.keystone_v3_cred['project_id'] = os.environ['OS_TENANT_NAME']
+      self.keystone_v3_cred['project_name'] = os.environ['OS_TENANT_NAME']
+      self.keystone_v3_cred['user_domain_name'] = os.environ['OS_USER_DOMAIN_NAME']
+      self.keystone_v3_cred['project_domain_name'] = os.environ['OS_PROJECT_DOMAIN_NAME']
     except KeyError:
       pass
 
@@ -167,9 +169,12 @@ class OSCredentials(object):
     if options.tenant  : self.keystone_cred['tenant_name'] = options.tenant
     # Keystone v3 only entries
     if options.auth_url: self.keystone_v3_cred['auth_url']    = options.auth_url
-    if options.username: self.keystone_v3_cred['user_id']    = options.username
+    if options.username: self.keystone_v3_cred['username']    = options.username
     if options.password: self.keystone_v3_cred['password']    = options.password
-    if options.tenant  : self.keystone_v3_cred['project_id'] = options.tenant
+    if options.tenant  : self.keystone_v3_cred['project_name'] = options.tenant
+    if options.user_domain_name:
+        self.keystone_v3_cred['user_domain_name'] = options.user_domain_name
+        self.keystone_v3_cred['project_domain_name'] = options.user_domain_name
 
   def credentials_available(self):
     for key in ['auth_url', 'username', 'api_key', 'project_id']:
@@ -178,7 +183,7 @@ class OSCredentials(object):
     for key in ['auth_url', 'username', 'password', 'tenant_name']:
       if not key in self.keystone_cred:
         raise CredentialsMissingException(key=key)
-    for key in ['auth_url', 'user_id', 'password', 'project_id']:
+    for key in ['auth_url', 'username', 'password', 'project_name', 'user_domain_name', 'project_domain_name']:
       if not key in self.keystone_v3_cred:
         raise CredentialsMissingException(key=key)
   
@@ -1076,6 +1081,7 @@ def parse_command_line():
   parser.add_option("-u", "--username", dest='username', help='username')
   parser.add_option("-p", "--password", dest='password', help='password')
   parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
+  parser.add_option("-e", "--domain", dest='user_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
 
   parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
 
