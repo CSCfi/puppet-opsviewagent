@@ -869,7 +869,6 @@ class OSBarbicanAvailability():
     except:
       raise
 
-
 class OSCinderAvailability(cinder.Client):
   '''
   Check cinder API call length by using list volume
@@ -877,14 +876,11 @@ class OSCinderAvailability(cinder.Client):
   options = dict()
 
   def __init__(self, options):
-    self.options = options
-    creds = OSCredentials(options).provide()
-    super(OSCinderAvailability, self).__init__(**creds)
-    self.authenticate()
+    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
 
   def get_cinder_volumes(self):
     search_opts = { }
-    vols = self.volumes.list(search_opts=search_opts)
+    vols = self.cinder.volumes.list(search_opts=search_opts)
     if LOCAL_DEBUG:
       print vols
 
