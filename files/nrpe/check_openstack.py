@@ -258,9 +258,7 @@ class OSInstanceCheck(TimeStateMachine):
   options = dict()
 
   def __init__(self, options):
-    self.options = options
-    creds = OSCredentials(options).provide()
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def instance_status(self):
     instance = self.nova.servers.get(self.instance.id)
@@ -359,9 +357,7 @@ class OSGhostInstanceCheck():
   options = dict()
 
   def __init__(self, options):
-    self.options = options
-    creds = OSCredentials(options).provide()
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def get_nova_instance_list(self):
 
@@ -590,9 +586,7 @@ class OSGhostNodeCheck():
   options = dict()
 
   def __init__(self, options):
-    self.options = options
-    creds = OSCredentials(options).provide()
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def check_bad_hosts(self):
     services = self.nova.services.list()
