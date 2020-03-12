@@ -175,7 +175,6 @@ class OSCredentials(object):
     if options.user_domain_name:
         self.keystone_v3_cred['user_domain_name'] = options.user_domain_name
         self.keystone_v3_cred['project_domain_name'] = options.user_domain_name
-
   def credentials_available(self):
     for key in ['auth_url', 'username', 'api_key', 'project_id']:
       if not key in self.cred:
@@ -195,6 +194,12 @@ class OSCredentials(object):
 
   def provide_keystone_v3(self):
     return self.keystone_v3_cred
+
+def keystone_session_v3(options):
+    creds = OSCredentials(options).provide_keystone_v3()
+    auth = identity.v3.Password(**creds)
+    sessionx = session.Session(auth=auth)
+    return sessionx
 
 class OSVolumeCheck(cinder.Client):
   '''
@@ -863,11 +868,7 @@ class OSBarbicanAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = identity.V2Password(**creds)
-    sessionx = session.Session(auth=auth)
-    self.barbican = barbicanclient.Client(session=sessionx)
+    self.barbican = barbicanclient.Client(session=keystone_session_v3(options))
 
 
   def get_barbican_images(self):
@@ -916,11 +917,7 @@ class OSGlanceAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.glance = glanceclient.Client('2', session=sessionx)
+    self.glance = glanceclient.Client('2', session=keystone_session_v3(options))
 
   def get_glance_images(self):
     image_generator = self.glance.images.list()
@@ -974,10 +971,7 @@ class OSKeystoneAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone_v3()
-    auth = identity.v3.Password(**creds)
-    sessionx = session.Session(auth=auth)
-    self.keystone = keystoneclientv3.Client(session=sessionx)
+    self.keystone = keystoneclientv3.Client(session=keystone_session_v3(options))
 
   def get_keystone(self):
     vols = self.keystone.projects.list()
@@ -997,11 +991,7 @@ class OSMagnumAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.magnum = magnumclient.Client('1', session=sessionx)
+    self.magnum = magnumclient.Client('1', session=keystone_session_v3(options))
 
   def get_magnum_clusters(self):
     vols = self.magnum.clusters.list()
@@ -1023,11 +1013,7 @@ class OSNeutronAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.neutron = neutronclient.Client('2', session=sessionx)
+    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
 
   def get_neutron_subnetpools(self):
     vols = self.neutron.list_subnetpools()
@@ -1050,12 +1036,7 @@ class OSNovaAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.nova = novaclient.client.Client('2', session=sessionx)
-
+    self.nova = novaclient.client.Client('2', session=keystone_session_v3(options))
 
   def get_nova_images(self):
     vols = self.nova.servers.list()
