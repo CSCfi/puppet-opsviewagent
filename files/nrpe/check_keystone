@@ -161,9 +161,10 @@ def main():
                       help='Domain name for user query in CSC stats. '
                            'Defaults to \'users\'.')
   parser.add_argument('-j', '--milliseconds',
-                      metavar='<milliseconds>,'
-                      default="false",
+                      action='store_true',
+                      default=False,
                       help='not implemented')
+
   args = parser.parse_args()
   try:
     check = CheckKeystone(vars(args))
