@@ -264,9 +264,9 @@ class OSInstanceCheck(TimeStateMachine):
     return instance._info['status']
 
   def instance_create(self):
-    image   = self.nova.images.find(name=self.options.instance_image)
+    image   = self.nova.glance.find_image(self.options.instance_image)
     flavor  = self.nova.flavors.find(name=self.options.instance_flavor)
-    network = self.nova.networks.find(label=self.options.network_name)
+    network = self.nova.neutron.find_network(self.options.network_name)
     self.instance = self.nova.servers.create(name=self.options.instance_name,
               image=image.id, flavor=flavor.id,
               nics=[ {'net-id': network.id} ])
@@ -322,8 +322,10 @@ class OSInstanceCheck(TimeStateMachine):
     try:
       self.delete_orphaned_instances()
       results['10_delete_instance_ms'] = self.time_diff()
-      self.delete_orphaned_floating_ips()
-      results['20_delete_floatingip_ms'] = self.time_diff()
+      if self.options.no_ping == False:
+        # TODO THIS DOES PROBABLY NOT WORK IN cPOUTA
+        self.delete_orphaned_floating_ips()
+        results['20_delete_floatingip_ms'] = self.time_diff()
       self.instance_create()
       results['30_create_instance_ms'] = self.time_diff()
       self.wait_instance_is_available()
