@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # TODO This needs to be updated
-# warnings.warn('Using keystoneclient sessions has been deprecated. '
 
 # Keystone monitoring script for Nagios using Keystone V3 API
 #
