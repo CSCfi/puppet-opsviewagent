@@ -209,10 +209,10 @@ class OSVolumeCheck():
 
   def __init__(self, options):
     self.options = options
-    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
 
   def volume_create(self):
-    self.volume = self.cinder.volumes.create(display_name=self.options.volume_name,
+    self.volume = self.cinder.volumes.create(name=self.options.volume_name,
               size=self.options.volume_size)
 
   def volume_destroy(self):
