@@ -41,7 +41,7 @@ usage ()
     echo " -D <domain>      Domain to use to get an auth token"
 }
 
-while getopts 'h:H:U:T:P:' OPTION
+while getopts 'h:H:U:T:P:D:' OPTION
 do
     case $OPTION in
         h)
