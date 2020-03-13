@@ -201,7 +201,7 @@ def keystone_session_v3(options):
     sessionx = session.Session(auth=auth)
     return sessionx
 
-class OSVolumeCheck(cinder.Client):
+class OSVolumeCheck():
   '''
   Create cinder volume and destroy the volume on OpenStack
   '''
@@ -209,12 +209,10 @@ class OSVolumeCheck(cinder.Client):
 
   def __init__(self, options):
     self.options = options
-    creds = OSCredentials(options).provide()
-    super(OSVolumeCheck, self).__init__(**creds)
-    self.authenticate()
+    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
 
   def volume_create(self):
-    self.volume = self.volumes.create(display_name=self.options.volume_name,
+    self.volume = self.cinder.volumes.create(display_name=self.options.volume_name,
               size=self.options.volume_size)
 
   def volume_destroy(self):
@@ -222,7 +220,7 @@ class OSVolumeCheck(cinder.Client):
       self.volume.delete()
 
   def volume_status(self):
-    volume = self.volumes.get(self.volume.id)
+    volume = self.cinder.volumes.get(self.volume.id)
     return volume._info['status']
 
   def wait_volume_is_available(self):
@@ -237,7 +235,7 @@ class OSVolumeCheck(cinder.Client):
 
   def delete_orphaned_volumes(self):
     search = dict(display_name = self.options.volume_name)
-    for volume in self.volumes.list(search_opts=search):
+    for volume in self.cinder.volumes.list(search_opts=search):
       if volume._info['status'] in STATUS_VOLUME_OK_DELETE:
         volume.delete()
 
@@ -608,23 +606,21 @@ class OSGhostNodeCheck():
     except:
       raise
 
-class OSVolumeErrorCheck(cinder.Client):
+class OSVolumeErrorCheck():
   ''' Ghosthunting for volumes in "error " state. '''
 
   options = dict()
 
   def __init__(self, options):
     self.options = options
-    creds = OSCredentials(options).provide()
-    super(OSVolumeErrorCheck, self).__init__(**creds)
-    self.authenticate()
+    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
 
   def check_volume_errors(self):
 
     search_opts = { 'all_tenants': '1',
                     'status': 'error',
                     'status': 'error_deleting' }
-    volumes = self.volumes.list(search_opts=search_opts)
+    volumes = self.cinder.volumes.list(search_opts=search_opts)
     if volumes:
       msgs = []
       for volume in volumes:
