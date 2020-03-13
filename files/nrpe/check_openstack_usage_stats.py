@@ -167,9 +167,8 @@ def main():
     cred['auth_url']   = options.auth_url
     cred['username']   = options.username
     cred['password']   = options.password
-    cred['project_id'] = options.project_id
     cred['project_name'] = options.project_name
-    cred['domain_id'] = options.auth_domain_name
+    cred['domain_name'] = options.auth_domain_name
 
     openstack = oscred(**cred)
     nova = openstack.get_nova()
