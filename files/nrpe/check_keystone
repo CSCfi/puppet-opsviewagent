@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+# TODO This needs to be updated
+
 # Keystone monitoring script for Nagios using Keystone V3 API
 #
 # Copyright 2015 CSC - IT Center For Science
@@ -117,19 +120,19 @@ def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
 
 def main():
   parser = argparse.ArgumentParser(description='Check an OpenStack Keystone server')
-  parser.add_argument('--username',
+  parser.add_argument('-u', '--username',
                       metavar='<auth-user-name>',
                       default=os.environ.get('OS_USERNAME'),
                       help='Name used for authentication with the '
                            'OpenStack Identity service. '
                            'Defaults to env[OS_USERNAME].')
-  parser.add_argument('--password',
+  parser.add_argument('-p', '--password',
                       metavar='<auth-password>',
                       default=os.environ.get('OS_PASSWORD'),
                       help='Password used for authentication with the '
                            'OpenStack Identity service. '
                            'Defaults to env[OS_PASSWORD].')
-  parser.add_argument('--project_name',
+  parser.add_argument('-t', '--project_name',
                       metavar='<auth-project-name>',
                       default=os.environ.get('OS_TENANT_NAME'),
                       help='Project to request authorization on. '
@@ -144,12 +147,12 @@ def main():
                       default=os.environ.get('OS_DOMAIN_NAME'),
                       help='Domain to request authorization on. '
                            'Defaults to env[OS_DOMAIN_NAME].')
-  parser.add_argument('--domain_id',
+  parser.add_argument('-e', '--domain_id',
                       metavar='<auth-domain-id>',
                       default=os.environ.get('OS_DOMAIN_ID'),
                       help='Domain id to request authorization on. '
                            'Defaults to env[OS_DOMAIN_ID].')
-  parser.add_argument('--auth_url',
+  parser.add_argument('-a', '--auth_url',
                       metavar='<auth-url>',
                       default=os.environ.get('OS_AUTH_URL'),
                       help='Specify the Identity endpoint to use for '
@@ -160,6 +163,11 @@ def main():
                       default='users',
                       help='Domain name for user query in CSC stats. '
                            'Defaults to \'users\'.')
+  parser.add_argument('-j', '--milliseconds',
+                      action='store_true',
+                      default=False,
+                      help='not implemented')
+
   args = parser.parse_args()
   try:
     check = CheckKeystone(vars(args))

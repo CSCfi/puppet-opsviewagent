@@ -130,7 +130,7 @@ class OSCredentials(object):
   cred = dict()
   keystone_cred = dict()
   keystone_v3_cred = dict()
-  
+
   def __init__(self, options):
     self.environment_credentials()
     self.options_credentials(options)
@@ -149,9 +149,11 @@ class OSCredentials(object):
       self.keystone_cred['tenant_name'] = os.environ['OS_TENANT_NAME']
       # Keystone v3 only entries
       self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
-      self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
+      self.keystone_v3_cred['username']    = os.environ['OS_USERNAME']
       self.keystone_v3_cred['password']    = os.environ['OS_PASSWORD']
-      self.keystone_v3_cred['project_id'] = os.environ['OS_TENANT_NAME']
+      self.keystone_v3_cred['project_name'] = os.environ['OS_TENANT_NAME']
+      self.keystone_v3_cred['user_domain_name'] = os.environ['OS_USER_DOMAIN_NAME']
+      self.keystone_v3_cred['project_domain_name'] = os.environ['OS_PROJECT_DOMAIN_NAME']
     except KeyError:
       pass
 
@@ -167,10 +169,12 @@ class OSCredentials(object):
     if options.tenant  : self.keystone_cred['tenant_name'] = options.tenant
     # Keystone v3 only entries
     if options.auth_url: self.keystone_v3_cred['auth_url']    = options.auth_url
-    if options.username: self.keystone_v3_cred['user_id']    = options.username
+    if options.username: self.keystone_v3_cred['username']    = options.username
     if options.password: self.keystone_v3_cred['password']    = options.password
-    if options.tenant  : self.keystone_v3_cred['project_id'] = options.tenant
-
+    if options.tenant  : self.keystone_v3_cred['project_name'] = options.tenant
+    if options.user_domain_name:
+        self.keystone_v3_cred['user_domain_name'] = options.user_domain_name
+        self.keystone_v3_cred['project_domain_name'] = options.user_domain_name
   def credentials_available(self):
     for key in ['auth_url', 'username', 'api_key', 'project_id']:
       if not key in self.cred:
@@ -178,10 +182,10 @@ class OSCredentials(object):
     for key in ['auth_url', 'username', 'password', 'tenant_name']:
       if not key in self.keystone_cred:
         raise CredentialsMissingException(key=key)
-    for key in ['auth_url', 'user_id', 'password', 'project_id']:
+    for key in ['auth_url', 'username', 'password', 'project_name', 'user_domain_name', 'project_domain_name']:
       if not key in self.keystone_v3_cred:
         raise CredentialsMissingException(key=key)
-  
+
   def provide(self):
     return self.cred
 
@@ -191,28 +195,32 @@ class OSCredentials(object):
   def provide_keystone_v3(self):
     return self.keystone_v3_cred
 
-class OSVolumeCheck(cinder.Client):
+def keystone_session_v3(options):
+    creds = OSCredentials(options).provide_keystone_v3()
+    auth = identity.v3.Password(**creds)
+    sessionx = session.Session(auth=auth)
+    return sessionx
+
+class OSVolumeCheck():
   '''
   Create cinder volume and destroy the volume on OpenStack
   '''
   options = dict()
-  
+
   def __init__(self, options):
     self.options = options
-    creds = OSCredentials(options).provide()
-    super(OSVolumeCheck, self).__init__(**creds)
-    self.authenticate()
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
 
   def volume_create(self):
-    self.volume = self.volumes.create(display_name=self.options.volume_name,
+    self.volume = self.cinder.volumes.create(name=self.options.volume_name,
               size=self.options.volume_size)
 
   def volume_destroy(self):
     if hasattr(self, 'volume'):
       self.volume.delete()
-  
+
   def volume_status(self):
-    volume = self.volumes.get(self.volume.id)
+    volume = self.cinder.volumes.get(self.volume.id)
     return volume._info['status']
 
   def wait_volume_is_available(self):
@@ -227,7 +235,7 @@ class OSVolumeCheck(cinder.Client):
 
   def delete_orphaned_volumes(self):
     search = dict(display_name = self.options.volume_name)
-    for volume in self.volumes.list(search_opts=search):
+    for volume in self.cinder.volumes.list(search_opts=search):
       if volume._info['status'] in STATUS_VOLUME_OK_DELETE:
         volume.delete()
 
@@ -246,32 +254,31 @@ class OSInstanceCheck(TimeStateMachine):
   Create, ping and destroy an instance in OpenStack
   '''
   options = dict()
-  
+
   def __init__(self, options):
     self.options = options
-    creds = OSCredentials(options).provide()
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def instance_status(self):
     instance = self.nova.servers.get(self.instance.id)
     return instance._info['status']
-  
+
   def instance_create(self):
-    image   = self.nova.images.find(name=self.options.instance_image)
+    image   = self.nova.glance.find_image(self.options.instance_image)
     flavor  = self.nova.flavors.find(name=self.options.instance_flavor)
-    network = self.nova.networks.find(label=self.options.network_name)
+    network = self.nova.neutron.find_network(self.options.network_name)
     self.instance = self.nova.servers.create(name=self.options.instance_name,
               image=image.id, flavor=flavor.id,
               nics=[ {'net-id': network.id} ])
-  
+
   def instance_destroy(self):
     if hasattr(self, 'instance'):
       self.nova.servers.delete(self.instance.id)
-  
+
   def instance_attach_floating_ip(self):
     self.fip = self.nova.floating_ips.create(self.options.fip_pool)
     self.instance.add_floating_ip(self.fip)
-    
+
   def instance_detach_floating_ip(self):
     if hasattr(self, 'fip'):
       self.instance.remove_floating_ip(self.fip.ip)
@@ -280,7 +287,7 @@ class OSInstanceCheck(TimeStateMachine):
   def floating_ip_delete(self):
     if hasattr(self, 'fip'):
       self.nova.floating_ips.delete(self.fip)
-    
+
   def floating_ip_ping(self):
     count = self.options.ping_count
     interval = self.options.ping_interval
@@ -288,7 +295,7 @@ class OSInstanceCheck(TimeStateMachine):
      status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
      if status != 0:
       raise InstanceNotPingableException(status=status)
-    
+
   def wait_instance_is_available(self):
     inc = 0
     while (inc < self.options.wait):
@@ -298,7 +305,7 @@ class OSInstanceCheck(TimeStateMachine):
       if status == STATUS_INSTANCE_ACTIVE:
         return
     raise InstanceNotAvailableException(status=status)
-  
+
   def delete_orphaned_instances(self):
     search = dict(name = self.options.instance_name)
     for instance in self.nova.servers.list(search_opts=search):
@@ -308,15 +315,17 @@ class OSInstanceCheck(TimeStateMachine):
     for tenant_ip in self.nova.floating_ips.list():
       self.nova.floating_ips.delete(tenant_ip)
     if len(self.nova.floating_ips.list()) != 0:
-      logging.warn('All floating IPs of instance creation test tenant were not deleted.') 
+      logging.warn('All floating IPs of instance creation test tenant were not deleted.')
 
   def execute(self):
     results = dict()
     try:
       self.delete_orphaned_instances()
       results['10_delete_instance_ms'] = self.time_diff()
-      self.delete_orphaned_floating_ips()
-      results['20_delete_floatingip_ms'] = self.time_diff()
+      if self.options.no_ping == False:
+        # TODO THIS DOES PROBABLY NOT WORK IN cPOUTA
+        self.delete_orphaned_floating_ips()
+        results['20_delete_floatingip_ms'] = self.time_diff()
       self.instance_create()
       results['30_create_instance_ms'] = self.time_diff()
       self.wait_instance_is_available()
@@ -349,9 +358,7 @@ class OSGhostInstanceCheck():
   options = dict()
 
   def __init__(self, options):
-    self.options = options
-    creds = OSCredentials(options).provide()
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def get_nova_instance_list(self):
 
@@ -403,7 +410,7 @@ class OSGhostInstanceCheck():
     '''
     ssh to every host, check the vms running with virsh list
     '''
-    
+
     # --all shows all vms not just the running ones
     # --name omits the table headers just prints a list of vm names
     virshList = 'sudo virsh list --all --name'
@@ -460,7 +467,7 @@ class OSGhostInstanceCheck():
       if not virshInstance in novaInstances:
         logging.info(virshInstance[0] + ' not found from nova')
         novaGhosts.append(virshInstance)
-    
+
     if virshGhosts or novaGhosts:
       raise LostInstancesException(virshGhosts=virshGhosts,
                                    novaGhosts=novaGhosts)
@@ -561,7 +568,7 @@ class OSGhostVolumeCheck(cinder.Client):
       if not lvmVolume in cinderVolumes:
         logging.info(lvmVolume[0] + ' not found from cinder')
         novaGhosts.append(virshInstance)
-    
+
     if cinderGhosts or lvmGhosts:
       raise LostVolumesException(cinderGhosts=cinderGhosts,
                                  lvmGhosts=lvmGhosts)
@@ -580,9 +587,7 @@ class OSGhostNodeCheck():
   options = dict()
 
   def __init__(self, options):
-    self.options = options
-    creds = OSCredentials(options).provide()
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def check_bad_hosts(self):
     services = self.nova.services.list()
@@ -597,30 +602,28 @@ class OSGhostNodeCheck():
       raise HostsEnabledAndDownException(msgs=msgs)
     else:
       logging.info('No enabled hosts are down')
-  
+
   def execute(self):
     try:
       self.check_bad_hosts()
     except:
       raise
 
-class OSVolumeErrorCheck(cinder.Client):
+class OSVolumeErrorCheck():
   ''' Ghosthunting for volumes in "error " state. '''
 
   options = dict()
 
   def __init__(self, options):
     self.options = options
-    creds = OSCredentials(options).provide()
-    super(OSVolumeErrorCheck, self).__init__(**creds)
-    self.authenticate()
+    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
 
   def check_volume_errors(self):
 
     search_opts = { 'all_tenants': '1',
                     'status': 'error',
                     'status': 'error_deleting' }
-    volumes = self.volumes.list(search_opts=search_opts)
+    volumes = self.cinder.volumes.list(search_opts=search_opts)
     if volumes:
       msgs = []
       for volume in volumes:
@@ -645,18 +648,9 @@ class OSCapacityCheck():
   def __init__(self, options):
     self.options = options
 
-    ''' Keystone has different credential dict '''
-    keystone_creds = OSCredentials(options).provide_keystone()
-    keystone = keystoneclient.Client(**keystone_creds)
-    keystone.authenticate()
-
-    ''' Credentials for everything else '''
-    creds = OSCredentials(options).provide()
-    neutron_endpoint = keystone.service_catalog.url_for(service_type='network',
-                                                        endpoint_type='publicURL')
-    self.neutron = neutronclient.Client('2.0', endpoint_url=neutron_endpoint,
-                                        token=keystone.auth_token)
-    self.nova = nova.Client(APIVersion("2.12"), **creds)
+    #self.keystone = keystoneclientv3.Client(session=keystone_session_v3(options))
+    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
+    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
   def check_network_capacity(self):
     vlan_params = { 'provider:network_type':'vlan', }
@@ -858,11 +852,7 @@ class OSBarbicanAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = identity.V2Password(**creds)
-    sessionx = session.Session(auth=auth)
-    self.barbican = barbicanclient.Client(session=sessionx)
+    self.barbican = barbicanclient.Client(session=keystone_session_v3(options))
 
 
   def get_barbican_images(self):
@@ -878,7 +868,6 @@ class OSBarbicanAvailability():
     except:
       raise
 
-
 class OSCinderAvailability(cinder.Client):
   '''
   Check cinder API call length by using list volume
@@ -886,14 +875,11 @@ class OSCinderAvailability(cinder.Client):
   options = dict()
 
   def __init__(self, options):
-    self.options = options
-    creds = OSCredentials(options).provide()
-    super(OSCinderAvailability, self).__init__(**creds)
-    self.authenticate()
+    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
 
   def get_cinder_volumes(self):
     search_opts = { }
-    vols = self.volumes.list(search_opts=search_opts)
+    vols = self.cinder.volumes.list(search_opts=search_opts)
     if LOCAL_DEBUG:
       print vols
 
@@ -911,11 +897,7 @@ class OSGlanceAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.glance = glanceclient.Client('2', session=sessionx)
+    self.glance = glanceclient.Client('2', session=keystone_session_v3(options))
 
   def get_glance_images(self):
     image_generator = self.glance.images.list()
@@ -969,10 +951,7 @@ class OSKeystoneAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone_v3()
-    auth = identity.v3.Password(**creds)
-    sessionx = session.Session(auth=auth)
-    self.keystone = keystoneclientv3.Client(session=sessionx)
+    self.keystone = keystoneclientv3.Client(session=keystone_session_v3(options))
 
   def get_keystone(self):
     vols = self.keystone.projects.list()
@@ -992,11 +971,7 @@ class OSMagnumAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.magnum = magnumclient.Client('1', session=sessionx)
+    self.magnum = magnumclient.Client('1', session=keystone_session_v3(options))
 
   def get_magnum_clusters(self):
     vols = self.magnum.clusters.list()
@@ -1018,11 +993,7 @@ class OSNeutronAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.neutron = neutronclient.Client('2', session=sessionx)
+    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
 
   def get_neutron_subnetpools(self):
     vols = self.neutron.list_subnetpools()
@@ -1045,12 +1016,7 @@ class OSNovaAvailability():
   options = dict()
 
   def __init__(self, options):
-    creds = OSCredentials(options).provide_keystone()
-    loader = loading.get_plugin_loader('password')
-    auth = loader.load_from_options(**creds)
-    sessionx = session.Session(auth=auth)
-    self.nova = novaclient.client.Client('2', session=sessionx)
-
+    self.nova = novaclient.client.Client('2', session=keystone_session_v3(options))
 
   def get_nova_images(self):
     vols = self.nova.servers.list()
@@ -1076,6 +1042,7 @@ def parse_command_line():
   parser.add_option("-u", "--username", dest='username', help='username')
   parser.add_option("-p", "--password", dest='password', help='password')
   parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
+  parser.add_option("-e", "--domain", dest='user_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
 
   parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
 
@@ -1086,14 +1053,14 @@ def parse_command_line():
   parser.add_option("-l", "--floating_ip_pool", dest='fip_pool', help='floating ip pool name')
   parser.add_option("-c", "--ping_count", dest='ping_count', help='number of ping packets')
   parser.add_option("-I", "--ping_interval", dest='ping_interval', help='seconds interval between ping packets')
-  
+
   parser.add_option("-v", "--volume_name", dest='volume_name', help='test volume name')
   parser.add_option("-s", "--volume_size", dest='volume_size', help='test volume size')
   parser.add_option("-w", "--wait", dest='wait', type='int', help='max seconds to wait for creation')
   parser.add_option("-z", "--no-ping", dest='no_ping', action='store_true', help='no ping test')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
   parser.add_option("-k", "--only-windows", dest='only_windows', action='store_true', help='Option to only print windows aggregate OSCapacity as a way to combat 1024 character limit in check_nrpe')
-  
+
   (options, args) = parser.parse_args()
 
   if not options.volume_name:
@@ -1126,7 +1093,7 @@ def parse_command_line():
 
   if len(args) == 0:
     sys.exit(NAGIOS_STATE_UNKNOWN, 'Command argument missing! Use --help.')
-  
+
   return (options, args)
 
 def execute_check(options, args):
@@ -1159,12 +1126,12 @@ def execute_check(options, args):
   if not command in os_check:
     print 'Unknown command argument! Use --help.'
     sys.exit(NAGIOS_STATE_UNKNOWN)
-  
+
   return os_check[command](options).execute()
 
 def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
   '''
-  Exits with the specified exit_code and outputs any stats in the format 
+  Exits with the specified exit_code and outputs any stats in the format
   nagios/opsview expects.
   '''
   time_end = time.time() - time_start
@@ -1188,7 +1155,7 @@ def exit_with_stats(exit_code=NAGIOS_STATE_OK, stats=dict()):
   for key in stats:
     output += ' ' + key + '=' + str(stats[key])
   print(output)
-  
+
   sys.exit(exit_code)
 
 def main():
