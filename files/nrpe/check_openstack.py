@@ -172,9 +172,9 @@ class OSCredentials(object):
     if options.username: self.keystone_v3_cred['username']    = options.username
     if options.password: self.keystone_v3_cred['password']    = options.password
     if options.tenant  : self.keystone_v3_cred['project_name'] = options.tenant
-    if options.user_domain_name:
-        self.keystone_v3_cred['user_domain_name'] = options.user_domain_name
-        self.keystone_v3_cred['project_domain_name'] = options.user_domain_name
+    if options.user_and_project_domain_name:
+        self.keystone_v3_cred['user_domain_name'] = options.user_and_project_domain_name
+        self.keystone_v3_cred['project_domain_name'] = options.user_and_project_domain_name
   def credentials_available(self):
     for key in ['auth_url', 'username', 'api_key', 'project_id']:
       if not key in self.cred:
@@ -323,7 +323,6 @@ class OSInstanceCheck(TimeStateMachine):
       self.delete_orphaned_instances()
       results['10_delete_instance_ms'] = self.time_diff()
       if self.options.no_ping == False:
-        # TODO THIS DOES PROBABLY NOT WORK IN cPOUTA
         self.delete_orphaned_floating_ips()
         results['20_delete_floatingip_ms'] = self.time_diff()
       self.instance_create()
@@ -1042,7 +1041,7 @@ def parse_command_line():
   parser.add_option("-u", "--username", dest='username', help='username')
   parser.add_option("-p", "--password", dest='password', help='password')
   parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
-  parser.add_option("-e", "--domain", dest='user_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
+  parser.add_option("-e", "--domain", dest='user_and_project_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
 
   parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
 
