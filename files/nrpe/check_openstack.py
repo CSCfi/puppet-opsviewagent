@@ -951,9 +951,10 @@ class OSKeystoneAvailability():
 
   def __init__(self, options):
     self.keystone = keystoneclientv3.Client(session=keystone_session_v3(options))
+    self.creds = OSCredentials(options).provide_keystone_v3()
 
   def get_keystone(self):
-    vols = self.keystone.projects.list()
+    user = self.keystone.users.get(self.creds['username'])
 
   def execute(self):
     results = dict()
