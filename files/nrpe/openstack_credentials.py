@@ -16,20 +16,19 @@ class OpenStackCredentials(object):
                  auth_url,
                  username,
                  password,
-                 project_id,
                  project_name,
-                 domain_id):
+                 domain_name):
         self.auth_url = auth_url
         self.username = username
         self.password = password
-        self.project_id = project_id
         self.project_name = project_name
-        self.domain_id = domain_id
+        self.domain_name = domain_name
         self.auth = v3.Password(auth_url=self.auth_url,
                                 username=self.username,
                                 password=self.password,
-                                project_id=self.project_id,
-                                user_domain_id=self.domain_id)
+                                project_name=self.project_name,
+                                user_domain_name=self.domain_name,
+                                project_domain_name=self.domain_name)
         self.session = session
 
     def get_keystone(self):

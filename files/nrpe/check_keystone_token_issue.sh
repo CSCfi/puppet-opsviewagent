@@ -37,10 +37,11 @@ usage ()
     echo " -h               Get help"
     echo " -H <Auth URL>    URL for obtaining an auth token"
     echo " -U <username>    Username to use to get an auth token"
-    echo " -P <password>    Password to use ro get an auth token"
+    echo " -P <password>    Password to use to get an auth token"
+    echo " -D <domain>      Domain to use to get an auth token"
 }
 
-while getopts 'h:H:U:T:P:' OPTION
+while getopts 'h:H:U:T:P:D:' OPTION
 do
     case $OPTION in
         h)
@@ -56,6 +57,9 @@ do
         P)
             export OS_PASSWORD=$OPTARG
             ;;
+        D)
+            export OS_USER_DOMAIN=$OPTARG
+            ;;
         *)
             usage
             exit 1
@@ -70,7 +74,7 @@ then
 fi
 
 START=$(date +%s%3N)
-TOKEN=$(curl -i -H "Content-Type: application/json" -d '{ "auth": {"identity": {"methods": ["password"],"password": {"user": {"name": "'$OS_USERNAME'","domain": { "name": "Default"},"password": "'$OS_PASSWORD'" }}}}}' "${OS_AUTH_URL}"/auth/tokens 2>&1 | grep token|awk '{print $5}'|grep -o '".*"' | sed -n 's/.*"\([^"]*\)".*/\1/p')
+TOKEN=$(curl -i -H "Content-Type: application/json" -d '{ "auth": {"identity": {"methods": ["password"],"password": {"user": {"name": "'$OS_USERNAME'","domain": { "name": "'$OS_USER_DOMAIN'"},"password": "'$OS_PASSWORD'" }}}}}' "${OS_AUTH_URL}"/auth/tokens 2>&1 | grep token|awk '{print $5}'|grep -o '".*"' | sed -n 's/.*"\([^"]*\)".*/\1/p')
 
 END=$(date +%s%3N)
 
