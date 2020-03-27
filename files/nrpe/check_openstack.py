@@ -201,6 +201,16 @@ def keystone_session_v3(options):
     sessionx = session.Session(auth=auth)
     return sessionx
 
+def get_project_id(session, name):
+    keystone = keystoneclientv3.Client(session=session)
+    projects = keystone.projects.list()
+    project_list = list(filter(lambda d: name == d.name , projects))
+    if len(project_list) != 1:
+        print("there should only be on project")
+        exit_with_stats(NAGIOS_STATE_UNKNOWN)
+    project_id = project_list[0].id
+    return project_id
+
 class OSVolumeCheck():
   '''
   Create cinder volume and destroy the volume on OpenStack
@@ -646,10 +656,9 @@ class OSCapacityCheck():
 
   def __init__(self, options):
     self.options = options
-
-    #self.keystone = keystoneclientv3.Client(session=keystone_session_v3(options))
-    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
-    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
+    self.session = keystone_session_v3(options)
+    self.neutron = neutronclient.Client('2', session=self.session )
+    self.nova = novaclient.client.Client('2.12', session=self.session)
 
   def check_network_capacity(self):
     vlan_params = { 'provider:network_type':'vlan', }
@@ -708,9 +717,10 @@ class OSCapacityCheck():
     public_network_id = nagios_test_router[0]['external_gateway_info']['network_id']
     '''
 
-    SERVICE_TENANT_NAME="service"
+    SERVICE_TENANT_NAME="service" # This is a legacy HACK and only work in cPouta
     PUBLIC_NET_NAME="public"
-    public_network_id = self.neutron.list_networks(project_name=SERVICE_TENANT_NAME,
+    service_project_id = get_project_id(self.session, SERVICE_TENANT_NAME)
+    public_network_id = self.neutron.list_networks(project_id=service_project_id,
                          name=PUBLIC_NET_NAME)['networks'][0]['id']
 
     # Our public IP's are used for routers in addition to instances so we must
