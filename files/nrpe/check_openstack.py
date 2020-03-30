@@ -206,7 +206,7 @@ def get_project_id(session, name):
     projects = keystone.projects.list()
     project_list = list(filter(lambda d: name == d.name , projects))
     if len(project_list) != 1:
-        print("there should only be on project")
+        logging.critical('There should only be one project.')
         exit_with_stats(NAGIOS_STATE_UNKNOWN)
     project_id = project_list[0].id
     return project_id
