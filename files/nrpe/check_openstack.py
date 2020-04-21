@@ -286,17 +286,20 @@ class OSInstanceCheck(TimeStateMachine):
       self.nova.servers.delete(self.instance.id)
 
   def instance_attach_floating_ip(self):
-    self.fip = self.nova.floating_ips.create(self.options.fip_pool)
-    self.instance.add_floating_ip(self.fip)
+    public_network_id = self.neutron.list_networks(
+                         name='public')['networks'][0]['id']
+    body = {'floatingip': {'floating_network_id': public_network_id}}
+    self.fip = self.neutron.create_floatingip(body)
+    self.instance.add_floating_ip(self.fip['floatingip']['floating_ip_address'])
 
   def instance_detach_floating_ip(self):
     if hasattr(self, 'fip'):
       self.instance.remove_floating_ip(self.fip.ip)
-      self.nova.floating_ips.delete(self.fip)
+      self.neutron.delete_floatingip(self.fip['floatingip']['id'])
 
   def floating_ip_delete(self):
     if hasattr(self, 'fip'):
-      self.nova.floating_ips.delete(self.fip)
+      self.neutron.delete_floatingip(self.fip['floatingip']['id'])
 
   def floating_ip_ping(self):
     count = self.options.ping_count
@@ -322,16 +325,10 @@ class OSInstanceCheck(TimeStateMachine):
       instance.delete()
 
   def delete_orphaned_floating_ips(self):
-    for tenant_ip in self.nova.floating_ips.list():
-      self.nova.floating_ips.delete(tenant_ip)
-    if len(self.nova.floating_ips.list()) != 0:
+    for tenant_ip in self.neutron.list_floatingips()['floatingips']:
+      self.neutron.delete_floatingip(tenant_ip['id'])
+    if len(self.neutron.list_floatingips()['floatingips']) != 0:
       logging.warn('All floating IPs of instance creation test tenant were not deleted.')
-
-  #def delete_orphaned_floating_ips(self):
-  #  for tenant_ip in self.neutron.list_floatingips()['floatingips']:
-  #    self.neutron.delete_floatingip(tenant_ip)
-  #  if len(self.neutron.list_floatingips()['floatingips']) != 0:
-  #    logging.warn('All floating IPs of instance creation test tenant were not deleted.')
 
   def execute(self):
     results = dict()
