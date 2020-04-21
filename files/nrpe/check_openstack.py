@@ -268,6 +268,7 @@ class OSInstanceCheck(TimeStateMachine):
   def __init__(self, options):
     self.options = options
     self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
+    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
 
   def instance_status(self):
     instance = self.nova.servers.get(self.instance.id)
