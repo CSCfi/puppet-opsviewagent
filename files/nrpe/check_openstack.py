@@ -327,6 +327,12 @@ class OSInstanceCheck(TimeStateMachine):
     if len(self.nova.floating_ips.list()) != 0:
       logging.warn('All floating IPs of instance creation test tenant were not deleted.')
 
+  #def delete_orphaned_floating_ips(self):
+  #  for tenant_ip in self.neutron.list_floatingips()['floatingips']:
+  #    self.neutron.delete_floatingip(tenant_ip)
+  #  if len(self.neutron.list_floatingips()['floatingips']) != 0:
+  #    logging.warn('All floating IPs of instance creation test tenant were not deleted.')
+
   def execute(self):
     results = dict()
     try:
