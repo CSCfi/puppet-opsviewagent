@@ -287,6 +287,8 @@ class OSInstanceCheck(TimeStateMachine):
       self.nova.servers.delete(self.instance.id)
 
   def instance_attach_floating_ip(self):
+    # On admin-user, this is problematic since it can see multiple 'public' nets
+    # On non-admin-user, no issue as long as a net called 'public' isn't created to the project
     public_network_id = self.neutron.list_networks(
                          name='public')['networks'][0]['id']
     body = {'floatingip': {'floating_network_id': public_network_id}}
