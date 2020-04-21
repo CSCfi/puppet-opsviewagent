@@ -293,7 +293,21 @@ class OSInstanceCheck(TimeStateMachine):
                          name='public')['networks'][0]['id']
     body = {'floatingip': {'floating_network_id': public_network_id}}
     self.fip = self.neutron.create_floatingip(body)
-    self.instance.add_floating_ip(self.fip['floatingip']['floating_ip_address'])
+    # this bit courtesy of https://hammers.readthedocs.io/en/latest/_modules/ccmanage/server.html
+    try:
+        self.instance.add_floating_ip(self.fip['floatingip']['floating_ip_address'])
+    except AttributeError:
+        ports = self.neutron.list_ports(**{'device_id': self.instance.id}).get('ports')
+        fip_target = {
+            'port_id': ports[0]['id'],
+            'ip_addr': ports[0]['fixed_ips'][0]['ip_address']
+        }
+        target_id = fip_target['port_id']
+        self.neutron.update_floatingip(self.fip['floatingip']['id'], body={
+            'floatingip': {
+                'port_id': target_id,
+            }
+        })
 
   def instance_detach_floating_ip(self):
     if hasattr(self, 'fip'):
@@ -308,7 +322,7 @@ class OSInstanceCheck(TimeStateMachine):
     count = self.options.ping_count
     interval = self.options.ping_interval
     if hasattr(self, 'fip'):
-     status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
+     status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip['floatingip']['floating_ip_address']))
      if status != 0:
       raise InstanceNotPingableException(status=status)
 
