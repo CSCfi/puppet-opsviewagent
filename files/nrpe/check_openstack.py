@@ -270,6 +270,7 @@ class OSInstanceCheck(TimeStateMachine):
     self.session = keystone_session_v3(options)
     self.nova = novaclient.client.Client('2.12', session=self.session)
     self.neutron = neutronclient.Client('2', session=self.session)
+    self.keystone = keystoneclientv3.Client(session=self.session)
 
   def instance_status(self):
     instance = self.nova.servers.get(self.instance.id)
@@ -356,9 +357,18 @@ class OSInstanceCheck(TimeStateMachine):
     if len(self.neutron.list_floatingips(**fip_lookup_params)['floatingips']) != 0:
       logging.warn('All floating IPs of instance creation test project were not deleted.')
 
+  def raise_if_admin(self):
+    assignments = None
+    try:
+      assignments = self.keystone.role_assignments.list()
+    except:
+      pass
+    assert assignments == None
+
   def execute(self):
     results = dict()
     try:
+      self.raise_if_admin()
       self.delete_orphaned_instances()
       results['10_delete_instance_ms'] = self.time_diff()
       if self.options.no_ping == False:
