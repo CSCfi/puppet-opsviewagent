@@ -267,8 +267,9 @@ class OSInstanceCheck(TimeStateMachine):
 
   def __init__(self, options):
     self.options = options
-    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
-    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
+    self.session = keystone_session_v3(options)
+    self.nova = novaclient.client.Client('2.12', session=self.session)
+    self.neutron = neutronclient.Client('2', session=self.session)
 
   def instance_status(self):
     instance = self.nova.servers.get(self.instance.id)
@@ -342,10 +343,13 @@ class OSInstanceCheck(TimeStateMachine):
       instance.delete()
 
   def delete_orphaned_floating_ips(self):
-    for tenant_ip in self.neutron.list_floatingips()['floatingips']:
-      self.neutron.delete_floatingip(tenant_ip['id'])
-    if len(self.neutron.list_floatingips()['floatingips']) != 0:
-      logging.warn('All floating IPs of instance creation test tenant were not deleted.')
+    own_project_id = self.session.get_project_id()
+    fip_lookup_params = { 'project_id': own_project_id, }
+    own_floating_ips = self.neutron.list_floatingips(**fip_lookup_params)['floatingips']
+    for project_ip in own_floating_ips:
+      self.neutron.delete_floatingip(project_ip['id'])
+    if len(own_floating_ips) != 0:
+      logging.warn('All floating IPs of instance creation test project were not deleted.')
 
   def execute(self):
     results = dict()
