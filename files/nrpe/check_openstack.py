@@ -343,6 +343,9 @@ class OSInstanceCheck(TimeStateMachine):
       instance.delete()
 
   def delete_orphaned_floating_ips(self):
+    # This used to be done with novaclient where it was enought to just list().
+    # With neutronclient one needs to be much more specific, otherwise if ran
+    # with an admin user there is a risk of getting all the Floating IPs.
     own_project_id = self.session.get_project_id()
     fip_lookup_params = { 'project_id': own_project_id, }
     own_floating_ips = self.neutron.list_floatingips(**fip_lookup_params)['floatingips']
