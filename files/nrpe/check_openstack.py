@@ -348,10 +348,9 @@ class OSInstanceCheck(TimeStateMachine):
     # with an admin user there is a risk of getting all the Floating IPs.
     own_project_id = self.session.get_project_id()
     fip_lookup_params = { 'project_id': own_project_id, }
-    own_floating_ips = self.neutron.list_floatingips(**fip_lookup_params)['floatingips']
-    for project_ip in own_floating_ips:
+    for project_ip in self.neutron.list_floatingips(**fip_lookup_params)['floatingips']:
       self.neutron.delete_floatingip(project_ip['id'])
-    if len(own_floating_ips) != 0:
+    if len(self.neutron.list_floatingips(**fip_lookup_params)['floatingips']) != 0:
       logging.warn('All floating IPs of instance creation test project were not deleted.')
 
   def execute(self):
