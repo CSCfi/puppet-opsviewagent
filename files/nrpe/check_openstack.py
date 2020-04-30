@@ -349,6 +349,9 @@ class OSInstanceCheck(TimeStateMachine):
     own_project_id = self.session.get_project_id()
     fip_lookup_params = { 'project_id': own_project_id, }
     for project_ip in self.neutron.list_floatingips(**fip_lookup_params)['floatingips']:
+      if project_ip['project_id'] != own_project_id:
+        logging.critical('Orphan IPs slated for deletion should be owned by the calling project.')
+        exit_with_stats(NAGIOS_STATE_UNKNOWN)
       self.neutron.delete_floatingip(project_ip['id'])
     if len(self.neutron.list_floatingips(**fip_lookup_params)['floatingips']) != 0:
       logging.warn('All floating IPs of instance creation test project were not deleted.')
