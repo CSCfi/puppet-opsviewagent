@@ -358,6 +358,14 @@ class OSInstanceCheck(TimeStateMachine):
       logging.warn('All floating IPs of instance creation test project were not deleted.')
 
   def raise_if_admin(self):
+    # Brace yourself! With the current implementation of the calling function, it will
+    # bubble up all exceptions regardless of their type to it's calling function. Thus
+    # we raise an exception here if the session's user is an admin user. The simplest
+    # way for this seemed to do a lookup for the role assignments. That way we don't
+    # have to care whether the admin role comes from user or group assignment.
+    # If that fails, (we get an exception within this function), we *do not* raise
+    # that particular exception. It's a bit wonky and if we'd refactor the code a bit
+    # more and/or use return values it could probably be more readable.
     assignments = None
     try:
       assignments = self.keystone.role_assignments.list()
