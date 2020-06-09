@@ -267,7 +267,10 @@ class OSInstanceCheck(TimeStateMachine):
 
   def __init__(self, options):
     self.options = options
-    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
+    self.session = keystone_session_v3(options)
+    self.nova = novaclient.client.Client('2.12', session=self.session)
+    self.neutron = neutronclient.Client('2', session=self.session)
+    self.keystone = keystoneclientv3.Client(session=self.session)
 
   def instance_status(self):
     instance = self.nova.servers.get(self.instance.id)
@@ -286,23 +289,42 @@ class OSInstanceCheck(TimeStateMachine):
       self.nova.servers.delete(self.instance.id)
 
   def instance_attach_floating_ip(self):
-    self.fip = self.nova.floating_ips.create(self.options.fip_pool)
-    self.instance.add_floating_ip(self.fip)
+    # On admin-user, this is problematic since it can see multiple 'public' nets
+    # On non-admin-user, no issue as long as a net called 'public' isn't created to the project
+    public_network_id = self.neutron.list_networks(
+                         name='public')['networks'][0]['id']
+    body = {'floatingip': {'floating_network_id': public_network_id}}
+    self.fip = self.neutron.create_floatingip(body)
+    # this bit courtesy of https://hammers.readthedocs.io/en/latest/_modules/ccmanage/server.html
+    try:
+        self.instance.add_floating_ip(self.fip['floatingip']['floating_ip_address'])
+    except AttributeError:
+        ports = self.neutron.list_ports(**{'device_id': self.instance.id}).get('ports')
+        fip_target = {
+            'port_id': ports[0]['id'],
+            'ip_addr': ports[0]['fixed_ips'][0]['ip_address']
+        }
+        target_id = fip_target['port_id']
+        self.neutron.update_floatingip(self.fip['floatingip']['id'], body={
+            'floatingip': {
+                'port_id': target_id,
+            }
+        })
 
   def instance_detach_floating_ip(self):
     if hasattr(self, 'fip'):
       self.instance.remove_floating_ip(self.fip.ip)
-      self.nova.floating_ips.delete(self.fip)
+      self.neutron.delete_floatingip(self.fip['floatingip']['id'])
 
   def floating_ip_delete(self):
     if hasattr(self, 'fip'):
-      self.nova.floating_ips.delete(self.fip)
+      self.neutron.delete_floatingip(self.fip['floatingip']['id'])
 
   def floating_ip_ping(self):
     count = self.options.ping_count
     interval = self.options.ping_interval
     if hasattr(self, 'fip'):
-     status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip.ip))
+     status = os.system('ping -qA -c{0} -i{1} {2}'.format(count, interval, self.fip['floatingip']['floating_ip_address']))
      if status != 0:
       raise InstanceNotPingableException(status=status)
 
@@ -322,14 +344,39 @@ class OSInstanceCheck(TimeStateMachine):
       instance.delete()
 
   def delete_orphaned_floating_ips(self):
-    for tenant_ip in self.nova.floating_ips.list():
-      self.nova.floating_ips.delete(tenant_ip)
-    if len(self.nova.floating_ips.list()) != 0:
-      logging.warn('All floating IPs of instance creation test tenant were not deleted.')
+    # This used to be done with novaclient where it was enought to just list().
+    # With neutronclient one needs to be much more specific, otherwise if ran
+    # with an admin user there is a risk of getting all the Floating IPs.
+    own_project_id = self.session.get_project_id()
+    fip_lookup_params = { 'project_id': own_project_id, }
+    for project_ip in self.neutron.list_floatingips(**fip_lookup_params)['floatingips']:
+      if project_ip['project_id'] != own_project_id:
+        logging.critical('Orphan IPs slated for deletion should be owned by the calling project.')
+        exit_with_stats(NAGIOS_STATE_UNKNOWN)
+      self.neutron.delete_floatingip(project_ip['id'])
+    if len(self.neutron.list_floatingips(**fip_lookup_params)['floatingips']) != 0:
+      logging.warn('All floating IPs of instance creation test project were not deleted.')
+
+  def raise_if_admin(self):
+    # Brace yourself! With the current implementation of the calling function, it will
+    # bubble up all exceptions regardless of their type to it's calling function. Thus
+    # we raise an exception here if the session's user is an admin user. The simplest
+    # way for this seemed to do a lookup for the role assignments. That way we don't
+    # have to care whether the admin role comes from user or group assignment.
+    # If that fails, (we get an exception within this function), we *do not* raise
+    # that particular exception. It's a bit wonky and if we'd refactor the code a bit
+    # more and/or use return values it could probably be more readable.
+    assignments = None
+    try:
+      assignments = self.keystone.role_assignments.list()
+    except:
+      pass
+    assert assignments == None
 
   def execute(self):
     results = dict()
     try:
+      self.raise_if_admin()
       self.delete_orphaned_instances()
       results['10_delete_instance_ms'] = self.time_diff()
       if self.options.no_ping == False:
