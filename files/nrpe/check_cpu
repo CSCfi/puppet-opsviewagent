@@ -16,6 +16,10 @@
 
 # Modified by Teemu.Kiviniemi@csc.fi
 # - tries to save data from previous run, to get better averages
+#
+# Modified by oscar.kraemer@csc.fi
+# - Remove the saved date from prvious run since SELinux does not like it.
+# - Made the --interval variable actually reflect reality
 
 PROGNAME=`basename $0`
 VERSION="Version 1.0csc1,"
@@ -27,11 +31,6 @@ ST_CR=2
 ST_UK=3
 
 interval=1
-
-me=`whoami`
-save_file=/tmp/.nagios-check-cpu-saved-data-520772a81c0311c718751eea49c207fd."$me"
-
-umask 0077
 
 print_version() {
     echo "$VERSION $AUTHOR"
@@ -100,39 +99,29 @@ val_wcdiff() {
     fi
 }
 
-update_save_file() {
-    if ! grep -m1 '^cpu' /proc/stat > "$save_file" ; then
-	echo Error: Cannot update statistics file.
-	exit $ST_UK
-    fi
-}
-
 get_cpuvals() {
-    
-    if [ ! -e "$save_file" ]; then
-	update_save_file
-	sleep $interval
-    fi
 
-    tmp1_cpu_user=`awk '{print $2}' < "$save_file"`
-    tmp1_cpu_nice=`awk '{print $3}' < "$save_file"`
-    tmp1_cpu_sys=`awk '{print $4}' < "$save_file"`
-    tmp1_cpu_idle=`awk '{print $5}' < "$save_file"`
-    tmp1_cpu_iowait=`awk '{print $6}' < "$save_file"`
-    tmp1_cpu_irq=`awk '{print $7}' < "$save_file"`
-    tmp1_cpu_softirq=`awk '{print $8}' < "$save_file"`
+    stat="$(grep -m1 '^cpu' /proc/stat)"
+    tmp1_cpu_user=$(echo $stat | awk '{print $2}')
+    tmp1_cpu_nice=$(echo $stat |awk '{print $3}')
+    tmp1_cpu_sys=$(echo $stat | awk '{print $4}')
+    tmp1_cpu_idle=$(echo $stat | awk '{print $5}')
+    tmp1_cpu_iowait=$(echo $stat |awk '{print $6}')
+    tmp1_cpu_irq=$(echo $stat |awk '{print $7}')
+    tmp1_cpu_softirq=$(echo $stat |awk '{print $8}')
     tmp1_cpu_total=`expr $tmp1_cpu_user + $tmp1_cpu_nice + $tmp1_cpu_sys + \
 	$tmp1_cpu_idle + $tmp1_cpu_iowait + $tmp1_cpu_irq + $tmp1_cpu_softirq`
-    
-    update_save_file
 
-    tmp2_cpu_user=`awk '{print $2}' < "$save_file"`
-    tmp2_cpu_nice=`awk '{print $3}' < "$save_file"`
-    tmp2_cpu_sys=`awk '{print $4}' < "$save_file"`
-    tmp2_cpu_idle=`awk '{print $5}' < "$save_file"`
-    tmp2_cpu_iowait=`awk '{print $6}' < "$save_file"`
-    tmp2_cpu_irq=`awk '{print $7}' < "$save_file"`
-    tmp2_cpu_softirq=`awk '{print $8}' < "$save_file"`
+    sleep $interval
+    stat="$(grep -m1 '^cpu' /proc/stat)"
+
+    tmp2_cpu_user=$(echo $stat |awk '{print $2}')
+    tmp2_cpu_nice=$(echo $stat |awk '{print $3}')
+    tmp2_cpu_sys=$(echo $stat |awk '{print $4}')
+    tmp2_cpu_idle=$(echo $stat |awk '{print $5}')
+    tmp2_cpu_iowait=$(echo $stat |awk '{print $6}')
+    tmp2_cpu_irq=$(echo $stat |awk '{print $7}')
+    tmp2_cpu_softirq=$(echo $stat |awk '{print $8}')
     tmp2_cpu_total=`expr $tmp2_cpu_user + $tmp2_cpu_nice + $tmp2_cpu_sys + \
 	$tmp2_cpu_idle + $tmp2_cpu_iowait + $tmp2_cpu_irq + $tmp2_cpu_softirq`
 
@@ -145,7 +134,7 @@ get_cpuvals() {
     diff_cpu_softirq=`echo "${tmp2_cpu_softirq} - ${tmp1_cpu_softirq}" \
 	| bc -l`
     diff_cpu_total=`echo "${tmp2_cpu_total} - ${tmp1_cpu_total}" | bc -l`
-    
+
     cpu_user=`echo "scale=2; (1000*${diff_cpu_user}/${diff_cpu_total}+5)/10" \
 	| bc -l | sed 's/^\./0./'`
     cpu_nice=`echo "scale=2; (1000*${diff_cpu_nice}/${diff_cpu_total}+5)/10" \
@@ -162,8 +151,7 @@ get_cpuvals() {
 	+5)/10" | bc -l | sed 's/^\./0./'`
     cpu_total=`echo "scale=2; (1000*${diff_cpu_total}/${diff_cpu_total}+5)\\
 	/10" | bc -l | sed 's/^\./0./'`
-    cpu_usage=`echo "(${cpu_user}+${cpu_nice}+${cpu_sys}+${cpu_iowait}+\\
-	${cpu_irq}+${cpu_softirq})/1" | bc`
+    cpu_usage=`echo "100-${cpu_idle}/1" |bc`
 }
 
 do_output() {
