@@ -28,8 +28,6 @@ usage ()
 
 cleanup ()
 {
-  # Deconnection from the horizon
-  $CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s --referer "$HORIZON_HOST/dashboard" "$HORIZON_HOST/dashboard/auth/logout/"
   #Remove the saved cockies and returned results
   rm -f $COOKIE_FILE
   rm -f $CSV_FILE
@@ -129,6 +127,10 @@ RETURNCODE=$?
 LOGIN_END=$(date +%s.%6N)
 LOGIN_TIME=$(echo "${LOGIN_END} - ${LOGIN_START}" | bc -l)
 LOGIN_TIME_INT=$(echo "${LOGIN_TIME}"|awk -F'.' '{print $1}')
+
+# Deconnection from the horizon
+$CURL -L -c $COOKIE_FILE -b $COOKIE_FILE --output /dev/null --max-time $MAX_TIME -s --referer "$HORIZON_HOST/dashboard" "$HORIZON_HOST/dashboard/auth/logout/"
+
 
 # Remove cookie and result files
 cleanup
