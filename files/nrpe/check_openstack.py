@@ -915,7 +915,7 @@ class OSBarbicanAvailability():
     vols = self.barbican.secrets.list()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -937,7 +937,7 @@ class OSCinderAvailability(cinder.Client):
     search_opts = { }
     vols = self.cinder.volumes.list(search_opts=search_opts)
     if LOCAL_DEBUG:
-      print vols
+      print(vols)
 
   def execute(self):
     results = dict()
@@ -985,7 +985,7 @@ class OSHeatAvailability():
     auth = loader.load_from_options(**creds)
     sessionx = session.Session(auth=auth)
     if LOCAL_DEBUG:
-      print creds
+      print(creds)
 #    self.heat = heatclient.Client('1', session=sessionx)
 
   def get_heat_images(self):
@@ -1033,7 +1033,7 @@ class OSMagnumAvailability():
     vols = self.magnum.clusters.list()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -1055,7 +1055,7 @@ class OSNeutronAvailability():
     vols = self.neutron.list_subnetpools()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -1078,7 +1078,7 @@ class OSNovaAvailability():
     vols = self.nova.servers.list()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -1180,7 +1180,7 @@ def execute_check(options, args):
 
 
   if not command in os_check:
-    print 'Unknown command argument! Use --help.'
+    print('Unknown command argument! Use --help.')
     sys.exit(NAGIOS_STATE_UNKNOWN)
 
   return os_check[command](options).execute()
@@ -1232,29 +1232,29 @@ def main():
     # Call the check
     results = execute_check(options, args)
 
-  except cinderclient.exceptions.BadRequest, e:
-    print e
+  except cinderclient.exceptions.BadRequest as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
-  except cinderclient.exceptions.Unauthorized, e:
-    print e
+  except cinderclient.exceptions.Unauthorized as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_UNKNOWN)
-  except CredentialsMissingException, e:
-    print e
+  except CredentialsMissingException as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_UNKNOWN)
-  except InstanceNotPingableException, e:
-    print e
+  except InstanceNotPingableException as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except LostInstancesException as e:
-    print e
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except HostsEnabledAndDownException as e:
-    print e
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except HostNotAvailableException as e:
-    print e
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except VolumeErrorException as e:
-    print e
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   #except Exception as e:
   #  print "{0}: {1}".format(e.__class__.__name__, e)
