@@ -100,6 +100,9 @@ class LostVolumesException(CheckOpenStackException):
 class VolumeErrorException(CheckOpenStackException):
   msg_fmt = "Volumes in error state %(msgs)s"
 
+class CinderServiceAvailabilityException(CheckOpenStackException):
+  msg_fmt = "Cinder Services in error state %(msgs)s"
+
 class TimeStateMachine():
   '''
   This class can be used to mesure how long it takes to run a function.
@@ -931,18 +934,42 @@ class OSCinderAvailability(cinder.Client):
   options = dict()
 
   def __init__(self, options):
-    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
 
   def get_cinder_volumes(self):
     search_opts = { }
     vols = self.cinder.volumes.list(search_opts=search_opts)
+    print(vols)
     if LOCAL_DEBUG:
       print(vols)
 
   def execute(self):
-    results = dict()
     try:
       self.get_cinder_volumes()
+    except:
+      raise
+
+class OSCinderServiceAvailability(cinder.Client):
+
+  def __init__(self, options):
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
+
+  def check_cinder_services(self):
+    msgs = []    
+    services = self.cinder.services.list()
+    
+    for service in services:
+      if service.status == 'enabled' and service.state == 'down':
+        msgs.append("%s on %s, " % (service.binary,service.host))
+
+    if msgs:
+      raise CinderServiceAvailabilityException(msgs=msgs)
+    else:
+      logging.info('No enabled cinder service is down')
+
+  def execute(self):
+    try:
+      self.check_cinder_services()
     except:
       raise
 
@@ -1119,6 +1146,7 @@ def parse_command_line():
 
   (options, args) = parser.parse_args()
 
+
   if not options.volume_name:
     options.volume_name = DEFAULT_VOLUME_NAME
   if not options.volume_size:
@@ -1167,6 +1195,7 @@ def execute_check(options, args):
     'capacity': OSCapacityCheck,
     'barbican': OSBarbicanAvailability,
     'cinder': OSCinderAvailability,
+    'cinder_service': OSCinderServiceAvailability,
     'glance': OSGlanceAvailability,
     'heat':   OSHeatAvailability,
     'magnum': OSMagnumAvailability,
@@ -1256,6 +1285,10 @@ def main():
   except VolumeErrorException as e:
     print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
+  except CinderServiceAvailabilityException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_WARNING)
+
   #except Exception as e:
   #  print "{0}: {1}".format(e.__class__.__name__, e)
   #  exit_with_stats(NAGIOS_STATE_CRITICAL)
