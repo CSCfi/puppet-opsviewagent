@@ -959,7 +959,7 @@ class OSCinderServiceAvailability(cinder.Client):
     services = self.cinder.services.list()
     
     for service in services:
-      if service.status == 'enabled' and service.state == 'down':
+      if service.status == 'disabled' or service.state == 'down':
         msgs.append("%s on %s, " % (service.binary,service.host))
 
     if msgs:
