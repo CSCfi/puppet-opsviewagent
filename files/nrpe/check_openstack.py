@@ -100,8 +100,11 @@ class LostVolumesException(CheckOpenStackException):
 class VolumeErrorException(CheckOpenStackException):
   msg_fmt = "Volumes in error state %(msgs)s"
 
-class CinderServiceAvailabilityException(CheckOpenStackException):
-  msg_fmt = "Cinder Services in error state %(msgs)s"
+class CinderServiceDownException(CheckOpenStackException):
+  msg_fmt = "Cinder Services are down %(msgs)s"
+
+class CinderServiceDisabledException(CheckOpenStackException):
+  msg_fmt = "Cinder Services are disabled %(msgs)s"
 
 class TimeStateMachine():
   '''
@@ -959,13 +962,18 @@ class OSCinderServiceAvailability(cinder.Client):
     services = self.cinder.services.list()
     
     for service in services:
-      if service.status == 'disabled' or service.state == 'down':
+      if service.status == 'enabled' and service.state == 'down':
         msgs.append("%s on %s, " % (service.binary,service.host))
-
     if msgs:
-      raise CinderServiceAvailabilityException(msgs=msgs)
-    else:
-      logging.info('No enabled cinder service is down')
+      raise CinderServiceDownException(msgs=msgs)
+
+    for service in services:
+      if service.status == 'disabled':
+        msgs.append("%s on %s, " % (service.binary,service.host))
+    if msgs:
+      raise CinderServiceDisabledException(msgs=msgs)
+
+    logging.info('No enabled cinder service is down')
 
   def execute(self):
     try:
@@ -1285,10 +1293,12 @@ def main():
   except VolumeErrorException as e:
     print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
-  except CinderServiceAvailabilityException as e:
+  except CinderServiceDownException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_CRITICAL)
+  except CinderServiceDisabledException as e:
     print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
-
   #except Exception as e:
   #  print "{0}: {1}".format(e.__class__.__name__, e)
   #  exit_with_stats(NAGIOS_STATE_CRITICAL)
