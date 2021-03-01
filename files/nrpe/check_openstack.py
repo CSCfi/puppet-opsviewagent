@@ -678,7 +678,7 @@ class OSVolumeErrorCheck():
 
   def __init__(self, options):
     self.options = options
-    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
 
   def check_volume_errors(self):
 
