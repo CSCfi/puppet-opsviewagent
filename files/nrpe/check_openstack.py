@@ -958,19 +958,20 @@ class OSCinderServiceAvailability(cinder.Client):
     self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
 
   def check_cinder_services(self):
-    msgs = []    
+    warning_msgs = []
+    critical_msgs = []
+
     services = self.cinder.services.list()
-    
-    for service in services:
-      if service.status == 'enabled' and service.state == 'down':
-        msgs.append("%s on %s, " % (service.binary,service.host))
-    if msgs:
-      raise CinderServiceDownException(msgs=msgs)
 
     for service in services:
-      if service.status == 'disabled':
-        msgs.append("%s on %s, " % (service.binary,service.host))
-    if msgs:
+      if service.status == 'enabled' and service.state == 'down':
+        critical_msgs.append("%s on %s, " % (service.binary,service.host))
+      elif service.status == 'disabled':
+        warning_msgs.append("%s on %s, " % (service.binary,service.host))
+
+    if critical_msgs:
+      raise CinderServiceDownException(msgs=msgs)
+    elif warning_msgs:
       raise CinderServiceDisabledException(msgs=msgs)
 
     logging.info('No enabled cinder service is down')
