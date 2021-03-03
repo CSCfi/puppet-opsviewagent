@@ -970,9 +970,9 @@ class OSCinderServiceAvailability(cinder.Client):
         warning_msgs.append("%s on %s, " % (service.binary,service.host))
 
     if critical_msgs:
-      raise CinderServiceDownException(msgs=msgs)
+      raise CinderServiceDownException(msgs=critical_msgs)
     elif warning_msgs:
-      raise CinderServiceDisabledException(msgs=msgs)
+      raise CinderServiceDisabledException(msgs=warning_msgs)
 
     logging.info('No enabled cinder service is down')
 
