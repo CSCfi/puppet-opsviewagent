@@ -942,11 +942,11 @@ class OSCinderAvailability(cinder.Client):
   def get_cinder_volumes(self):
     search_opts = { }
     vols = self.cinder.volumes.list(search_opts=search_opts)
-    print(vols)
     if LOCAL_DEBUG:
       print(vols)
 
   def execute(self):
+    results = dict()
     try:
       self.get_cinder_volumes()
     except:
