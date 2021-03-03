@@ -100,6 +100,12 @@ class LostVolumesException(CheckOpenStackException):
 class VolumeErrorException(CheckOpenStackException):
   msg_fmt = "Volumes in error state %(msgs)s"
 
+class CinderServiceDownException(CheckOpenStackException):
+  msg_fmt = "Cinder Services are down %(msgs)s"
+
+class CinderServiceDisabledException(CheckOpenStackException):
+  msg_fmt = "Cinder Services are disabled %(msgs)s"
+
 class TimeStateMachine():
   '''
   This class can be used to mesure how long it takes to run a function.
@@ -672,7 +678,7 @@ class OSVolumeErrorCheck():
 
   def __init__(self, options):
     self.options = options
-    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
 
   def check_volume_errors(self):
 
@@ -915,7 +921,7 @@ class OSBarbicanAvailability():
     vols = self.barbican.secrets.list()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -931,18 +937,48 @@ class OSCinderAvailability(cinder.Client):
   options = dict()
 
   def __init__(self, options):
-    self.cinder = cinderclient.client.Client('2', session=keystone_session_v3(options))
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
 
   def get_cinder_volumes(self):
     search_opts = { }
     vols = self.cinder.volumes.list(search_opts=search_opts)
     if LOCAL_DEBUG:
-      print vols
+      print(vols)
 
   def execute(self):
     results = dict()
     try:
       self.get_cinder_volumes()
+    except:
+      raise
+
+class OSCinderServiceAvailability(cinder.Client):
+
+  def __init__(self, options):
+    self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
+
+  def check_cinder_services(self):
+    warning_msgs = []
+    critical_msgs = []
+
+    services = self.cinder.services.list()
+
+    for service in services:
+      if service.status == 'enabled' and service.state == 'down':
+        critical_msgs.append("%s on %s, " % (service.binary,service.host))
+      elif service.status == 'disabled':
+        warning_msgs.append("%s on %s, " % (service.binary,service.host))
+
+    if critical_msgs:
+      raise CinderServiceDownException(msgs=critical_msgs)
+    elif warning_msgs:
+      raise CinderServiceDisabledException(msgs=warning_msgs)
+
+    logging.info('No enabled cinder service is down')
+
+  def execute(self):
+    try:
+      self.check_cinder_services()
     except:
       raise
 
@@ -985,7 +1021,7 @@ class OSHeatAvailability():
     auth = loader.load_from_options(**creds)
     sessionx = session.Session(auth=auth)
     if LOCAL_DEBUG:
-      print creds
+      print(creds)
 #    self.heat = heatclient.Client('1', session=sessionx)
 
   def get_heat_images(self):
@@ -1033,7 +1069,7 @@ class OSMagnumAvailability():
     vols = self.magnum.clusters.list()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -1055,7 +1091,7 @@ class OSNeutronAvailability():
     vols = self.neutron.list_subnetpools()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -1078,7 +1114,7 @@ class OSNovaAvailability():
     vols = self.nova.servers.list()
     if LOCAL_DEBUG:
       for i in vols:
-        print i
+        print(i)
 
   def execute(self):
     results = dict()
@@ -1118,6 +1154,7 @@ def parse_command_line():
   parser.add_option("-k", "--only-windows", dest='only_windows', action='store_true', help='Option to only print windows aggregate OSCapacity as a way to combat 1024 character limit in check_nrpe')
 
   (options, args) = parser.parse_args()
+
 
   if not options.volume_name:
     options.volume_name = DEFAULT_VOLUME_NAME
@@ -1167,6 +1204,7 @@ def execute_check(options, args):
     'capacity': OSCapacityCheck,
     'barbican': OSBarbicanAvailability,
     'cinder': OSCinderAvailability,
+    'cinder_service': OSCinderServiceAvailability,
     'glance': OSGlanceAvailability,
     'heat':   OSHeatAvailability,
     'magnum': OSMagnumAvailability,
@@ -1180,7 +1218,7 @@ def execute_check(options, args):
 
 
   if not command in os_check:
-    print 'Unknown command argument! Use --help.'
+    print('Unknown command argument! Use --help.')
     sys.exit(NAGIOS_STATE_UNKNOWN)
 
   return os_check[command](options).execute()
@@ -1232,29 +1270,35 @@ def main():
     # Call the check
     results = execute_check(options, args)
 
-  except cinderclient.exceptions.BadRequest, e:
-    print e
+  except cinderclient.exceptions.BadRequest as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
-  except cinderclient.exceptions.Unauthorized, e:
-    print e
+  except cinderclient.exceptions.Unauthorized as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_UNKNOWN)
-  except CredentialsMissingException, e:
-    print e
+  except CredentialsMissingException as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_UNKNOWN)
-  except InstanceNotPingableException, e:
-    print e
+  except InstanceNotPingableException as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except LostInstancesException as e:
-    print e
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except HostsEnabledAndDownException as e:
-    print e
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except HostNotAvailableException as e:
-    print e
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   except VolumeErrorException as e:
-    print e
+    print(e)
+    exit_with_stats(NAGIOS_STATE_WARNING)
+  except CinderServiceDownException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_CRITICAL)
+  except CinderServiceDisabledException as e:
+    print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
   #except Exception as e:
   #  print "{0}: {1}".format(e.__class__.__name__, e)
