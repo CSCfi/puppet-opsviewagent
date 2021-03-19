@@ -96,19 +96,13 @@ class OSCredentials(object):
     if options.tenant  : self.keystone_v3_cred['project_name'] = options.tenant
     if options.user_domain_name: self.keystone_v3_cred['user_domain_name'] = options.user_domain_name
     if options.user_domain_name: self.keystone_v3_cred['project_domain_name'] = options.user_domain_name
-    if options.s3_host: self.cred['s3_host'] = options.s3_host
-    if options.s3_bucket_url: self.cred['s3_bucket_url'] = options.s3_bucket_url
- 
+
   def provide_keystone_v3(self):
     return self.keystone_v3_cred
 
   def credentials_available(self):
-    for key in ['auth_url', 'username', 'password', 'project_name', 'user_domain_name', 'project_domain_name']:
+    for key in ['auth_url', 'username', 'password', 'project_name']: 
       if not key in self.keystone_v3_cred:
-        raise CredentialsMissingException(key=key)
-
-    for key in ['s3_host', 's3_bucket_url']:
-      if not key in self.cred:
         raise CredentialsMissingException(key=key)
 
 class OSSwiftAvailability():
@@ -154,6 +148,10 @@ class S3PublicAvailability():
   def __init__(self, options):
      self.options = options
      if self.options.auth_url:
+       if options.s3_host is None: 
+        raise CredentialsMissingException(key='s3_host')
+       if options.s3_bucket_url is None:
+        raise CredentialsMissingException(key='s3_bucket_url')
        self.creds = OSCredentials(options)
 
   def list_public_s3_objects(self):
