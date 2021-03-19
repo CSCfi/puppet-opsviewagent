@@ -25,6 +25,9 @@ import urllib
 import swiftclient
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
+from keystoneauth1 import session
+from keystoneauth1 import identity
+from keystoneclient.v3 import client as keystoneclientv3
 
 LOCAL_DEBUG           = False
 NAGIOS_STATE_OK       = 0
@@ -39,6 +42,25 @@ USE_SECONDS              = True
 
 time_start = 0 # Used for timing excecution
 
+
+class CheckObjectException(Exception):
+  ''' Base Exception '''
+  msg_fmt = "An unknown exception occurred."
+
+  def __init__(self, **kwargs):
+    self.message = self.msg_fmt % kwargs
+  def __str__(self):
+    return self.message
+
+class CredentialsMissingException(CheckObjectException):
+  msg_fmt = "%(key)s parameter or environment variable missing!"
+
+class ProjectNotAvailableException(CheckObjectException):
+  msg_fmt = "Project does not exist with name: %(msgs)s"
+  
+class ProjectManyExistsException(CheckObjectException):
+  msg_fmt = "Many Project have the same name %(msgs)s"
+
 class OSCredentials(object):
   '''
   Read authentication credentials from environment or optionParser
@@ -50,9 +72,12 @@ class OSCredentials(object):
   def __init__(self, options):
     self.environment_credentials()
     self.options_credentials(options)
+    self.credentials_available()
 
   def environment_credentials(self):
     try:
+      self.cred['s3_host']   = os.environ['s3_host']
+      self.cred['s3_bucket_url']   = os.environ['s3_bucket_url']
       # Keystone v3 only entries
       self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
       self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
@@ -71,10 +96,20 @@ class OSCredentials(object):
     if options.tenant  : self.keystone_v3_cred['project_name'] = options.tenant
     if options.user_domain_name: self.keystone_v3_cred['user_domain_name'] = options.user_domain_name
     if options.user_domain_name: self.keystone_v3_cred['project_domain_name'] = options.user_domain_name
-
-
+    if options.s3_host: self.cred['s3_host'] = options.s3_host
+    if options.s3_bucket_url: self.cred['s3_bucket_url'] = options.s3_bucket_url
+ 
   def provide_keystone_v3(self):
     return self.keystone_v3_cred
+
+  def credentials_available(self):
+    for key in ['auth_url', 'username', 'password', 'project_name', 'user_domain_name', 'project_domain_name']:
+      if not key in self.keystone_v3_cred:
+        raise CredentialsMissingException(key=key)
+
+    for key in ['s3_host', 's3_bucket_url']:
+      if not key in self.cred:
+        raise CredentialsMissingException(key=key)
 
 class OSSwiftAvailability():
   '''
@@ -101,7 +136,7 @@ class OSSwiftAvailability():
 
     if LOCAL_DEBUG:
       for container in containers:
-        print container
+        print(container)
 
   def execute(self):
     results = dict()
@@ -118,14 +153,35 @@ class S3PublicAvailability():
 
   def __init__(self, options):
      self.options = options
-     True
+     self.creds = OSCredentials(options)
 
   def list_public_s3_objects(self):
     """ read a public S3 URL with urllib
     This does not create a public bucket if one does not exist.
     This fails if the bucket does not exist or if it's private.
     """
-    _response = urllib.urlopen(self.options.s3_bucket_url)
+    msgs = []
+    creds = self.creds.provide_keystone_v3()
+    auth = identity.v3.Password(**creds)
+    session_ = session.Session(auth=auth)
+    keystone = keystoneclientv3.Client(session=session_)
+    projects = keystone.projects.list()
+
+    tenant_projects = []
+    for project in projects:
+      if project.name == self.options.tenant:
+        tenant_projects.append(project.id)
+
+    #This check should be not needed, it is already catched by the authentication exception.
+    if len(tenant_projects) == 0:
+      raise ProjectNotAvailableException(msgs=self.options.tenant)
+
+    if len(tenant_projects) > 1:
+      raise ProjectManyExistsException(msgs=", ".join(str(project_id) for project_id in tenant_projects))
+
+    project_id = tenant_projects[0]
+    s3_url = "{}/AUTH_{}/{}-{}".format(self.options.s3_host,project_id,self.options.tenant,self.options.s3_bucket_url)
+    _response = urllib.urlopen(s3_url)
     _html = _response.read()
 
     if LOCAL_DEBUG:
@@ -265,7 +321,6 @@ class S3FunctionalityTest():
     return results
 
 ###
-
 def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
@@ -279,6 +334,7 @@ def parse_command_line():
   parser.add_option("-k", "--s3_secret_key", dest='s3_secret_key', help='password')
   parser.add_option("-l", "--s3_host", dest='s3_host', help='host')
   parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
+  parser.add_option("-e", "--domain", dest='user_and_project_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
 
   parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
 
@@ -361,10 +417,22 @@ def main():
 
     # Call the check
     results = execute_check(options, args)
+  
+  except ProjectNotAvailableException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
+
+  except ProjectManyExistsException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
   except Exception as e:
     print "{0}: {1}".format(e.__class__.__name__, e)
     exit_with_stats(NAGIOS_STATE_CRITICAL)
+
+  except CredentialsMissingException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
   exit_with_stats(NAGIOS_STATE_OK, results)
 
