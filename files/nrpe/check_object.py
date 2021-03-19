@@ -153,34 +153,39 @@ class S3PublicAvailability():
 
   def __init__(self, options):
      self.options = options
-     self.creds = OSCredentials(options)
+     if self.options.auth_url:
+       self.creds = OSCredentials(options)
 
   def list_public_s3_objects(self):
     """ read a public S3 URL with urllib
     This does not create a public bucket if one does not exist.
     This fails if the bucket does not exist or if it's private.
     """
-    msgs = []
-    creds = self.creds.provide_keystone_v3()
-    auth = identity.v3.Password(**creds)
-    session_ = session.Session(auth=auth)
-    keystone = keystoneclientv3.Client(session=session_)
-    projects = keystone.projects.list()
+    if self.options.auth_url is None:
+      s3_url = self.options.s3_bucket_url
+    else:
+      msgs = []
+      creds = self.creds.provide_keystone_v3()
+      auth = identity.v3.Password(**creds)
+      session_ = session.Session(auth=auth)
+      keystone = keystoneclientv3.Client(session=session_)
+      projects = keystone.projects.list()
 
-    tenant_projects = []
-    for project in projects:
-      if project.name == self.options.tenant:
-        tenant_projects.append(project.id)
+      tenant_projects = []
+      for project in projects:
+        if project.name == self.options.tenant:
+          tenant_projects.append(project.id)
 
-    #This check should be not needed, it is already catched by the authentication exception.
-    if len(tenant_projects) == 0:
-      raise ProjectNotAvailableException(msgs=self.options.tenant)
+      #This check should be not needed, it is already catched by the authentication exception.
+      if len(tenant_projects) == 0:
+        raise ProjectNotAvailableException(msgs=self.options.tenant)
 
-    if len(tenant_projects) > 1:
-      raise ProjectManyExistsException(msgs=", ".join(str(project_id) for project_id in tenant_projects))
+      if len(tenant_projects) > 1:
+        raise ProjectManyExistsException(msgs=", ".join(str(project_id) for project_id in tenant_projects))
 
-    project_id = tenant_projects[0]
-    s3_url = "{}/AUTH_{}/{}-{}".format(self.options.s3_host,project_id,self.options.tenant,self.options.s3_bucket_url)
+      project_id = tenant_projects[0]
+      s3_url = "{}/AUTH_{}/{}-{}".format(self.options.s3_host,project_id,self.options.tenant,self.options.s3_bucket_url)
+
     _response = urllib.urlopen(s3_url)
     _html = _response.read()
 
