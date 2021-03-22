@@ -57,9 +57,6 @@ class CredentialsMissingException(CheckObjectException):
 
 class ProjectNotAvailableException(CheckObjectException):
   msg_fmt = "Project does not exist with name: %(msgs)s"
-  
-class ProjectManyExistsException(CheckObjectException):
-  msg_fmt = "Many Project have the same name %(msgs)s"
 
 class OSCredentials(object):
   '''
@@ -163,25 +160,14 @@ class S3PublicAvailability():
       s3_url = self.options.s3_bucket_url
     else:
       msgs = []
-      creds = self.creds.provide_keystone_v3()
-      auth = identity.v3.Password(**creds)
+      auth = identity.v3.Password(**self.creds.provide_keystone_v3())
       session_ = session.Session(auth=auth)
       keystone = keystoneclientv3.Client(session=session_)
-      projects = keystone.projects.list()
+      project_id = keystone.projects.client.get_project_id()
 
-      tenant_projects = []
-      for project in projects:
-        if project.name == self.options.tenant:
-          tenant_projects.append(project.id)
-
-      #This check should be not needed, it is already catched by the authentication exception.
-      if len(tenant_projects) == 0:
+      if project_id == None:
         raise ProjectNotAvailableException(msgs=self.options.tenant)
 
-      if len(tenant_projects) > 1:
-        raise ProjectManyExistsException(msgs=", ".join(str(project_id) for project_id in tenant_projects))
-
-      project_id = tenant_projects[0]
       s3_url = "{}/AUTH_{}/{}-{}".format(self.options.s3_host,project_id,self.options.tenant,self.options.s3_bucket_url)
 
     _response = urllib.urlopen(s3_url)
@@ -422,10 +408,6 @@ def main():
     results = execute_check(options, args)
   
   except ProjectNotAvailableException as e:
-    print(e)
-    exit_with_stats(NAGIOS_STATE_UNKNOWN)
-
-  except ProjectManyExistsException as e:
     print(e)
     exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
