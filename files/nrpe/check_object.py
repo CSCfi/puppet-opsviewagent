@@ -144,31 +144,62 @@ class S3PublicAvailability():
 
   def __init__(self, options):
      self.options = options
-     if self.options.auth_url:
-       if options.s3_host is None: 
-        raise CredentialsMissingException(key='s3_host')
-       if options.s3_bucket_url is None:
-        raise CredentialsMissingException(key='s3_bucket_url')
-       self.creds = OSCredentials(options)
+     True
 
   def list_public_s3_objects(self):
     """ read a public S3 URL with urllib
     This does not create a public bucket if one does not exist.
     This fails if the bucket does not exist or if it's private.
     """
-    if self.options.auth_url is None:
-      s3_url = self.options.s3_bucket_url
-    else:
-      msgs = []
-      auth = identity.v3.Password(**self.creds.provide_keystone_v3())
-      session_ = session.Session(auth=auth)
-      keystone = keystoneclientv3.Client(session=session_)
-      project_id = keystone.projects.client.get_project_id()
+    _response = urllib.urlopen(self.options.s3_bucket_url)
+    _html = _response.read()
 
-      if project_id == None:
-        raise ProjectNotAvailableException(msgs=self.options.tenant)
+    if LOCAL_DEBUG:
+      print _html
 
-      s3_url = "{}/AUTH_{}/{}-{}".format(self.options.s3_host,project_id,self.options.tenant,self.options.s3_bucket_url)
+    try:
+      assert "AccessDenied" not in _html
+      assert "NoSuchBucket" not in _html
+    except:
+      print "ERROR: AccessDenied or NoSuchBucket for %s" % self.options.s3_bucket_url
+      raise
+
+  def execute(self):
+    try:
+      self.list_public_s3_objects()
+    except:
+      raise
+
+class SwiftPublicAvailability():
+  '''
+  Check S3 API call length by listing contents of a public bucket
+  '''
+  options = dict()
+
+  def __init__(self, options):
+     self.options = options
+     if options.s3_host is None:
+       raise CredentialsMissingException(key='s3_host')
+     if options.s3_bucket_url is None:
+       raise CredentialsMissingException(key='s3_bucket_url')
+    self.creds = OSCredentials(options)
+
+  def list_public_s3_objects(self):
+    """ read a public S3 URL with urllib
+    This does not create a public bucket if one does not exist.
+    This fails if the bucket does not exist or if it's private.
+    """
+    msgs = []
+    auth = identity.v3.Password(**self.creds.provide_keystone_v3())
+    session_ = session.Session(auth=auth)
+    keystone = keystoneclientv3.Client(session=session_)
+
+    project_id = keystone.projects.client.get_project_id()
+
+    if project_id == None:
+      raise ProjectNotAvailableException(msgs=self.options.tenant)
+
+    s3_url = "{}/AUTH_{}/{}-{}".format(self.options.s3_host,project_id,self.options.tenant,self.options.s3_bucket_url)
 
     _response = urllib.urlopen(s3_url)
     _html = _response.read()
@@ -348,6 +379,7 @@ def execute_check(options, args):
   command = args.pop()
   os_check = {
     'swift': OSSwiftAvailability,
+    'swiftpublic': SwiftPublicAvailability,
     's3public': S3PublicAvailability,
     's3private': S3PrivateAvailability,
     's3func': S3FunctionalityTest,
