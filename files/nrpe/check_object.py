@@ -182,7 +182,7 @@ class SwiftPublicAvailability():
        raise CredentialsMissingException(key='s3_host')
      if options.s3_bucket_url is None:
        raise CredentialsMissingException(key='s3_bucket_url')
-    self.creds = OSCredentials(options)
+     self.creds = OSCredentials(options)
 
   def list_public_s3_objects(self):
     """ read a public S3 URL with urllib
