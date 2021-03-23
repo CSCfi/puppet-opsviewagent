@@ -73,8 +73,6 @@ class OSCredentials(object):
 
   def environment_credentials(self):
     try:
-      self.cred['s3_host']   = os.environ['s3_host']
-      self.cred['s3_bucket_url']   = os.environ['s3_bucket_url']
       # Keystone v3 only entries
       self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
       self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
@@ -161,7 +159,7 @@ class S3PublicAvailability():
       assert "AccessDenied" not in _html
       assert "NoSuchBucket" not in _html
     except:
-      print "ERROR: AccessDenied or NoSuchBucket for %s" % self.options.s3_bucket_url
+      print("ERROR: AccessDenied or NoSuchBucket for {}".format(self.options.s3_bucket_url))
       raise
 
   def execute(self):
@@ -177,12 +175,32 @@ class SwiftPublicAvailability():
   options = dict()
 
   def __init__(self, options):
-     self.options = options
-     if options.s3_host is None:
-       raise CredentialsMissingException(key='s3_host')
-     if options.s3_bucket_url is None:
-       raise CredentialsMissingException(key='s3_bucket_url')
-     self.creds = OSCredentials(options)
+
+    self.creds = OSCredentials(options)
+
+    try:
+      if options.swift_host is not None:
+        self.swift_host = options.swift_host
+      else:
+        self.swift_host = os.environ['swift_host']
+    except KeyError: 
+      raise CredentialsMissingException(key='swift_host')
+
+    try:
+      if options.swift_bucket_url is not None:
+        self.swift_bucket_url = options.swift_bucket_url
+      else:
+        self.swift_bucket_url = os.environ['swift_bucket_url']
+    except KeyError: 
+      raise CredentialsMissingException(key='swift_bucket_url')
+
+    try:
+      if options.tenant is not None:
+        self.tenant = options.tenant
+      else:
+        self.tenant = os.environ['tenant']
+    except KeyError: 
+      raise CredentialsMissingException(key='tenant')
 
   def list_public_swift_objects(self):
     """ read a public swift URL with urllib
@@ -197,21 +215,27 @@ class SwiftPublicAvailability():
     project_id = keystone.projects.client.get_project_id()
 
     if project_id == None:
-      raise ProjectNotAvailableException(msgs=self.options.tenant)
+      raise ProjectNotAvailableException(msgs=self.tenant)
 
-    s3_url = "{}/AUTH_{}/{}-{}".format(self.options.s3_host,project_id,self.options.tenant,self.options.s3_bucket_url)
+    swift_url = "{}/AUTH_{}/{}".format(self.swift_host,project_id,self.swift_bucket_url)
 
-    _response = urllib.urlopen(s3_url)
+    _response = urllib.urlopen(swift_url)
     _html = _response.read()
 
     if LOCAL_DEBUG:
-      print _html
+      print(_html)
 
     try:
       assert "AccessDenied" not in _html
       assert "NoSuchBucket" not in _html
     except:
-      print "ERROR: AccessDenied or NoSuchBucket for %s" % self.options.s3_bucket_url
+      print("ERROR: AccessDenied or NoSuchBucket for {}".format(swift_url))
+      raise
+
+    try:
+      assert "NoSuchKey" not in _html
+    except:
+      print("ERROR: NoSuchKey for {}".format(swift_url))
       raise
 
   def execute(self):
@@ -352,13 +376,12 @@ def parse_command_line():
   parser.add_option("-p", "--password", dest='password', help='password')
   parser.add_option("-s", "--s3_access_key", dest='s3_access_key', help='username')
   parser.add_option("-k", "--s3_secret_key", dest='s3_secret_key', help='password')
-  parser.add_option("-l", "--s3_host", dest='s3_host', help='host')
-  parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
-  parser.add_option("-e", "--domain", dest='user_and_project_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
-
-  parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
-
   parser.add_option("-b", "--s3_bucket_url", dest='s3_bucket_url', help='URL to S3 bucket')
+  parser.add_option("-l", "--s3_host", dest='s3_host', help='s3 host')
+  parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
+  parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
+  parser.add_option("-w", "--swift_host", dest='swift_host', help='swift host')
+  parser.add_option("-c", "--swift_bucket_url", dest='swift_bucket_url', help='URL to swift bucket')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
 
   (options, args) = parser.parse_args()
