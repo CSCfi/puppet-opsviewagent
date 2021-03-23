@@ -172,7 +172,7 @@ class S3PublicAvailability():
 
 class SwiftPublicAvailability():
   '''
-  Check S3 API call length by listing contents of a public bucket
+  Check Swift API call length by listing contents of a public bucket
   '''
   options = dict()
 
@@ -184,8 +184,8 @@ class SwiftPublicAvailability():
        raise CredentialsMissingException(key='s3_bucket_url')
      self.creds = OSCredentials(options)
 
-  def list_public_s3_objects(self):
-    """ read a public S3 URL with urllib
+  def list_public_swift_objects(self):
+    """ read a public swift URL with urllib
     This does not create a public bucket if one does not exist.
     This fails if the bucket does not exist or if it's private.
     """
@@ -216,7 +216,7 @@ class SwiftPublicAvailability():
 
   def execute(self):
     try:
-      self.list_public_s3_objects()
+      self.list_public_swift_objects()
     except:
       raise
 
@@ -438,14 +438,14 @@ def main():
 
     # Call the check
     results = execute_check(options, args)
-  
-  except ProjectNotAvailableException as e:
-    print(e)
-    exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
   except Exception as e:
     print "{0}: {1}".format(e.__class__.__name__, e)
     exit_with_stats(NAGIOS_STATE_CRITICAL)
+  
+  except ProjectNotAvailableException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
   except CredentialsMissingException as e:
     print(e)
