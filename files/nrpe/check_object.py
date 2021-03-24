@@ -52,7 +52,7 @@ class CheckObjectException(Exception):
   def __str__(self):
     return self.message
 
-class CredentialsMissingException(CheckObjectException):
+class CredentialsOrParametersMissingException(CheckObjectException):
   msg_fmt = "%(key)s parameter or environment variable missing!"
 
 class ProjectNotAvailableException(CheckObjectException):
@@ -98,7 +98,7 @@ class OSCredentials(object):
   def credentials_available(self):
     for key in ['auth_url', 'username', 'password', 'project_name']: 
       if not key in self.keystone_v3_cred:
-        raise CredentialsMissingException(key=key)
+        raise CredentialsOrParametersMissingException(key=key)
 
 class OSSwiftAvailability():
   '''
@@ -179,12 +179,12 @@ class SwiftPublicAvailability():
     self.creds = OSCredentials(options)
 
     try:
-      if options.swift_host is not None:
-        self.swift_host = options.swift_host
+      if options.swift_publicurl is not None:
+        self.swift_publicurl = options.swift_publicurl
       else:
-        self.swift_host = os.environ['swift_host']
+        self.swift_publicurl = os.environ['swift_publicurl']
     except KeyError: 
-      raise CredentialsMissingException(key='swift_host')
+      raise CredentialsOrParametersMissingException(key='swift_publicurl')
 
     try:
       if options.swift_bucket is not None:
@@ -192,7 +192,7 @@ class SwiftPublicAvailability():
       else:
         self.swift_bucket = os.environ['swift_bucket']
     except KeyError: 
-      raise CredentialsMissingException(key='swift_bucket')
+      raise CredentialsOrParametersMissingException(key='swift_bucket')
 
     try:
       if options.tenant is not None:
@@ -200,7 +200,7 @@ class SwiftPublicAvailability():
       else:
         self.tenant = os.environ['tenant']
     except KeyError: 
-      raise CredentialsMissingException(key='tenant')
+      raise CredentialsOrParametersMissingException(key='tenant')
 
   def list_public_swift_objects(self):
     """ read a public swift URL with urllib
@@ -217,7 +217,7 @@ class SwiftPublicAvailability():
     if project_id == None:
       raise ProjectNotAvailableException(msgs=self.tenant)
 
-    swift_url = "{}/AUTH_{}/{}".format(self.swift_host,project_id,self.swift_bucket)
+    swift_url = "{}/AUTH_{}/{}".format(self.swift_publicurl,project_id,self.swift_bucket)
 
     _response = urllib.urlopen(swift_url)
     _html = _response.read()
@@ -380,7 +380,7 @@ def parse_command_line():
   parser.add_option("-l", "--s3_host", dest='s3_host', help='s3 host')
   parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
   parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
-  parser.add_option("-w", "--swift_host", dest='swift_host', help='swift host')
+  parser.add_option("-w", "--swift_publicurl", dest='swift_publicurl', help='Swift publicurl')
   parser.add_option("-c", "--swift_bucket", dest='swift_bucket', help='Swift bucket')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
 
@@ -470,7 +470,7 @@ def main():
     print(e)
     exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
-  except CredentialsMissingException as e:
+  except CredentialsOrParametersMissingException as e:
     print(e)
     exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
