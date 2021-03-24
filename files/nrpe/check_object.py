@@ -187,12 +187,12 @@ class SwiftPublicAvailability():
       raise CredentialsMissingException(key='swift_host')
 
     try:
-      if options.swift_bucket_url is not None:
-        self.swift_bucket_url = options.swift_bucket_url
+      if options.swift_bucket is not None:
+        self.swift_bucket = options.swift_bucket
       else:
-        self.swift_bucket_url = os.environ['swift_bucket_url']
+        self.swift_bucket = os.environ['swift_bucket']
     except KeyError: 
-      raise CredentialsMissingException(key='swift_bucket_url')
+      raise CredentialsMissingException(key='swift_bucket')
 
     try:
       if options.tenant is not None:
@@ -217,7 +217,7 @@ class SwiftPublicAvailability():
     if project_id == None:
       raise ProjectNotAvailableException(msgs=self.tenant)
 
-    swift_url = "{}/AUTH_{}/{}".format(self.swift_host,project_id,self.swift_bucket_url)
+    swift_url = "{}/AUTH_{}/{}".format(self.swift_host,project_id,self.swift_bucket)
 
     _response = urllib.urlopen(swift_url)
     _html = _response.read()
@@ -381,7 +381,7 @@ def parse_command_line():
   parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
   parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
   parser.add_option("-w", "--swift_host", dest='swift_host', help='swift host')
-  parser.add_option("-c", "--swift_bucket_url", dest='swift_bucket_url', help='URL to swift bucket')
+  parser.add_option("-c", "--swift_bucket", dest='swift_bucket', help='Swift bucket')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
 
   (options, args) = parser.parse_args()
