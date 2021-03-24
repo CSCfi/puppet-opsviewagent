@@ -20,6 +20,7 @@ import subprocess
 import json
 
 import urllib
+import requests
 
 # Imports for API availability checks
 import swiftclient
@@ -219,8 +220,7 @@ class SwiftPublicAvailability():
 
     swift_url = "{}/AUTH_{}/{}".format(self.swift_publicurl,project_id,self.swift_bucket)
 
-    _response = urllib.urlopen(swift_url)
-    _html = _response.read()
+    _html = requests.get(swift_url).content
 
     if LOCAL_DEBUG:
       print(_html)
