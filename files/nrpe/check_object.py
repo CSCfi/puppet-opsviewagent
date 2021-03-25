@@ -25,6 +25,9 @@ import urllib
 import swiftclient
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
+from keystoneauth1 import session
+from keystoneauth1 import identity
+from keystoneclient.v3 import client as keystoneclientv3
 
 LOCAL_DEBUG           = False
 NAGIOS_STATE_OK       = 0
@@ -39,6 +42,22 @@ USE_SECONDS              = True
 
 time_start = 0 # Used for timing excecution
 
+
+class CheckObjectException(Exception):
+  ''' Base Exception '''
+  msg_fmt = "An unknown exception occurred."
+
+  def __init__(self, **kwargs):
+    self.message = self.msg_fmt % kwargs
+  def __str__(self):
+    return self.message
+
+class CredentialsOrParametersMissingException(CheckObjectException):
+  msg_fmt = "%(key)s parameter or environment variable missing!"
+
+class ProjectNotAvailableException(CheckObjectException):
+  msg_fmt = "Project does not exist with name: %(msgs)s"
+
 class OSCredentials(object):
   '''
   Read authentication credentials from environment or optionParser
@@ -50,6 +69,7 @@ class OSCredentials(object):
   def __init__(self, options):
     self.environment_credentials()
     self.options_credentials(options)
+    self.credentials_available()
 
   def environment_credentials(self):
     try:
@@ -72,9 +92,13 @@ class OSCredentials(object):
     if options.user_domain_name: self.keystone_v3_cred['user_domain_name'] = options.user_domain_name
     if options.user_domain_name: self.keystone_v3_cred['project_domain_name'] = options.user_domain_name
 
-
   def provide_keystone_v3(self):
     return self.keystone_v3_cred
+
+  def credentials_available(self):
+    for key in ['auth_url', 'username', 'password', 'project_name']: 
+      if not key in self.keystone_v3_cred:
+        raise CredentialsOrParametersMissingException(key=key)
 
 class OSSwiftAvailability():
   '''
@@ -101,7 +125,7 @@ class OSSwiftAvailability():
 
     if LOCAL_DEBUG:
       for container in containers:
-        print container
+        print(container)
 
   def execute(self):
     results = dict()
@@ -135,12 +159,87 @@ class S3PublicAvailability():
       assert "AccessDenied" not in _html
       assert "NoSuchBucket" not in _html
     except:
-      print "ERROR: AccessDenied or NoSuchBucket for %s" % self.options.s3_bucket_url
+      print("ERROR: AccessDenied or NoSuchBucket for {}".format(self.options.s3_bucket_url))
       raise
 
   def execute(self):
     try:
       self.list_public_s3_objects()
+    except:
+      raise
+
+class SwiftPublicAvailability():
+  '''
+  Check Swift API call length by listing contents of a public bucket
+  '''
+  options = dict()
+
+  def __init__(self, options):
+
+    self.creds = OSCredentials(options)
+
+    try:
+      if options.swift_publicurl is not None:
+        self.swift_publicurl = options.swift_publicurl
+      else:
+        self.swift_publicurl = os.environ['swift_publicurl']
+    except KeyError: 
+      raise CredentialsOrParametersMissingException(key='swift_publicurl')
+
+    try:
+      if options.swift_bucket is not None:
+        self.swift_bucket = options.swift_bucket
+      else:
+        self.swift_bucket = os.environ['swift_bucket']
+    except KeyError: 
+      raise CredentialsOrParametersMissingException(key='swift_bucket')
+
+    try:
+      if options.tenant is not None:
+        self.tenant = options.tenant
+      else:
+        self.tenant = os.environ['tenant']
+    except KeyError: 
+      raise CredentialsOrParametersMissingException(key='tenant')
+
+  def list_public_swift_objects(self):
+    """ read a public swift URL with urllib
+    This does not create a public bucket if one does not exist.
+    This fails if the bucket does not exist or if it's private.
+    """
+    msgs = []
+    auth = identity.v3.Password(**self.creds.provide_keystone_v3())
+    session_ = session.Session(auth=auth)
+    keystone = keystoneclientv3.Client(session=session_)
+
+    project_id = keystone.projects.client.get_project_id()
+
+    if project_id == None:
+      raise ProjectNotAvailableException(msgs=self.tenant)
+
+    swift_url = "{}/AUTH_{}/{}".format(self.swift_publicurl,project_id,self.swift_bucket)
+    _response = urllib.urlopen(swift_url)
+    _html = _response.read()
+
+    if LOCAL_DEBUG:
+      print(_html)
+
+    try:
+      assert "AccessDenied" not in _html
+      assert "NoSuchBucket" not in _html
+    except:
+      print("ERROR: AccessDenied or NoSuchBucket for {}".format(swift_url))
+      raise
+
+    try:
+      assert "NoSuchKey" not in _html
+    except:
+      print("ERROR: NoSuchKey for {}".format(swift_url))
+      raise
+
+  def execute(self):
+    try:
+      self.list_public_swift_objects()
     except:
       raise
 
@@ -265,7 +364,6 @@ class S3FunctionalityTest():
     return results
 
 ###
-
 def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
@@ -277,12 +375,12 @@ def parse_command_line():
   parser.add_option("-p", "--password", dest='password', help='password')
   parser.add_option("-s", "--s3_access_key", dest='s3_access_key', help='username')
   parser.add_option("-k", "--s3_secret_key", dest='s3_secret_key', help='password')
-  parser.add_option("-l", "--s3_host", dest='s3_host', help='host')
-  parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
-
-  parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
-
   parser.add_option("-b", "--s3_bucket_url", dest='s3_bucket_url', help='URL to S3 bucket')
+  parser.add_option("-l", "--s3_host", dest='s3_host', help='s3 host')
+  parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
+  parser.add_option("-d", "--debug", dest='debug', action='store_true', help='Debug mode. Enables logging')
+  parser.add_option("-w", "--swift_publicurl", dest='swift_publicurl', help='Swift publicurl')
+  parser.add_option("-c", "--swift_bucket", dest='swift_bucket', help='Swift bucket')
   parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
 
   (options, args) = parser.parse_args()
@@ -303,6 +401,7 @@ def execute_check(options, args):
   command = args.pop()
   os_check = {
     'swift': OSSwiftAvailability,
+    'swiftpublic': SwiftPublicAvailability,
     's3public': S3PublicAvailability,
     's3private': S3PrivateAvailability,
     's3func': S3FunctionalityTest,
@@ -365,6 +464,14 @@ def main():
   except Exception as e:
     print "{0}: {1}".format(e.__class__.__name__, e)
     exit_with_stats(NAGIOS_STATE_CRITICAL)
+  
+  except ProjectNotAvailableException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
+
+  except CredentialsOrParametersMissingException as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
 
   exit_with_stats(NAGIOS_STATE_OK, results)
 
