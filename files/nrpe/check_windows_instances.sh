@@ -64,6 +64,8 @@ do
 done
 shift "$((OPTIND-1))"
 
+export OS_IDENTITY_API_VERSION=3
+
 # get the id of the aggregates whose name contains "win"
 for AGG_ID in $(openstack aggregate list -c ID -c Name -f value | grep -i win | awk '{print $1}'); do
     # prepare a variable of the form "host1|host2|host3", where host1, host2, host3 are the hosts of the aggregate
