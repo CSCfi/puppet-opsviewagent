@@ -6,7 +6,7 @@
 
 ## Nagios return codes
 WARNING=1
-CRITICAL=2
+#CRITICAL=2
 UNKNOWN=3
 OK=0
 
@@ -58,7 +58,7 @@ do
             ;;
 	    *)
             usage
-            exit ${STATE_UNKNOWN}
+            exit $UNKNOWN
             ;;
     esac
 done
@@ -70,7 +70,7 @@ export OS_IDENTITY_API_VERSION=3
 for AGG_ID in $(openstack aggregate list -c ID -c Name -f value | grep -i win | awk '{print $1}'); do
     # prepare a variable of the form "host1|host2|host3", where host1, host2, host3 are the hosts of the aggregate
     NODES_LIST=""
-    for NODE in $(openstack aggregate show $AGG_ID -c hosts -f value | sed -e "s/\[u'//g" -e "s/ u'/ /g" -e "s/\[//g" -e "s/\]//g" -e "s/,//g"  -e "s/'//g"); do
+    for NODE in $(openstack aggregate show "$AGG_ID" -c hosts -f value | sed -e "s/\[u'//g" -e "s/ u'/ /g" -e "s/\[//g" -e "s/\]//g" -e "s/,//g"  -e "s/'//g"); do
         if [ "$NODES_LIST" = "" ]; then
             NODES_LIST="$NODE"
         else
@@ -78,9 +78,9 @@ for AGG_ID in $(openstack aggregate list -c ID -c Name -f value | grep -i win | 
         fi
     done
     # iterate over the projects contained in the filter_tenant_id
-    for PROJ_ID in $(openstack aggregate show $AGG_ID -c properties -f value | grep -oE '[a-z0-9]{32}'); do
+    for PROJ_ID in $(openstack aggregate show "$AGG_ID" -c properties -f value | grep -oE '[a-z0-9]{32}'); do
         # find instances that are running on hosts that are not the ones in the aggregate, escluding shelved instances (Host = None), and whose name or image name contain "win"
-        for INSTANCE in $(openstack server list --project $PROJ_ID --long -c ID -c Name -c Host -c "Image Name" -f value | grep -v -E "None|$NODES_LIST" | grep -i win | awk '{print $1}'); do
+        for INSTANCE in $(openstack server list --project "$PROJ_ID" --long -c ID -c Name -c Host -c "Image Name" -f value | grep -v -E "None|$NODES_LIST" | grep -i win | awk '{print $1}'); do
             if [ "${BUSTED}" = "" ]; then
                 BUSTED="$INSTANCE should be in aggregate $AGG_ID"
             else
@@ -93,6 +93,6 @@ if [ "${BUSTED}" = "" ]; then
     echo "OK: all Windows instances are in the correct aggregates"
     exit $OK
 else
-    echo "CRITICAL: the following Windows instances are in the wrong place${NL}${BUSTED}"
-    exit $CRITICAL
+    echo "WARNING: the following Windows instances are in the wrong place${NL}${BUSTED}"
+    exit $WARNING
 fi 
