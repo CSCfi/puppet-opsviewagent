@@ -90,7 +90,7 @@ for AGG_ID in $(openstack aggregate list -c ID -c Name -f value | grep -i win | 
     done
 done
 if [ "${BUSTED}" = "" ]; then
-    echo "OK: all Windows instances are in the correct aggregate"
+    echo "OK: all Windows instances are in the correct aggregates"
     exit $OK
 else
     echo "CRITICAL: the following Windows instances are in the wrong place${NL}${BUSTED}"
