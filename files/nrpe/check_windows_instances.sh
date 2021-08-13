@@ -70,7 +70,7 @@ export OS_IDENTITY_API_VERSION=3
 for AGG_ID in $(openstack aggregate list -c ID -c Name -f value | grep -i win | awk '{print $1}'); do
     # prepare a variable of the form "host1|host2|host3", where host1, host2, host3 are the hosts of the aggregate
     NODES_LIST=""
-    for NODE in $(openstack aggregate show "$AGG_ID" -c hosts -f value | sed -e "s/\[u'//g" -e "s/ u'/ /g" -e "s/\[//g" -e "s/\]//g" -e "s/,//g"  -e "s/'//g"); do
+    for NODE in $(openstack aggregate show "$AGG_ID" -c hosts -f yaml | tail -n+2 | sed -e "s/- //g"); do
         if [ "$NODES_LIST" = "" ]; then
             NODES_LIST="$NODE"
         else
