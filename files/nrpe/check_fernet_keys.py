@@ -6,11 +6,11 @@ import os
 import sys
 
 NAGIOS_STATE_OK             = 0
-NAGIOS_STATE_OK_MSG         = "OK | "
+NAGIOS_STATE_OK_MSG         = "OK - "
 NAGIOS_STATE_WARNING        = 1
-NAGIOS_STATE_WARNING_MSG    = "WARNING | "
+NAGIOS_STATE_WARNING_MSG    = "WARNING - "
 NAGIOS_STATE_CRITICAL       = 2
-NAGIOS_STATE_CRITICAL_MSG   = "CRITICAL | "
+NAGIOS_STATE_CRITICAL_MSG   = "CRITICAL - "
 
 
 def print_extra_missing_files_and_exit(extra_files, missing_files):
