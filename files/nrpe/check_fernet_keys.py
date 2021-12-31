@@ -29,9 +29,9 @@ def main():
         # line contains the last line of the log file
         status_msg = line
         print(status_msg)
-        if status_msg.contains("OK"):
+        if "OK" in status_msg:
             sys.exit(NAGIOS_STATE_OK)
-        elif status_msg.contains("WARNING"):
+        elif "WARNING" in status_msg:
             sys.exit(NAGIOS_STATE_WARNING)
         # in all other cases, return critical state
         sys.exit(NAGIOS_STATE_CRITICAL)
