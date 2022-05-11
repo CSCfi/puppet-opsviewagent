@@ -7,12 +7,16 @@
 
 import sys
 import os
-import logging
-from logging.handlers import SysLogHandler
+import os.path
+import optparse
+import novaclient.client as nova
+from novaclient.api_versions import APIVersion
+import novaclient
+from keystoneauth1 import loading
 from keystoneauth1 import session
-from keystoneauth1.identity import v3
+from keystoneauth1 import identity
 from keystoneclient.v3 import client as keystoneclient_v3
-from novaclient import client as nova
+
 import optparse
 import os
 import argparse
@@ -32,7 +36,7 @@ NAGIOS_STATE_CRITICAL = 2
 NAGIOS_STATE_UNKNOWN  = 3
 
 
-class CheckAntiAffinityException(Exception):
+class CheckOpenStackException(Exception):
   ''' Base Exception '''
   msg_fmt = "An unknown exception occurred."
 
@@ -41,7 +45,7 @@ class CheckAntiAffinityException(Exception):
   def __str__(self):
     return self.message
 
-class CredentialsOrParametersMissingException(CheckAntiAffinityException):
+class CredentialsMissingException(CheckOpenStackException):
   msg_fmt = "%(key)s parameter or environment variable missing!"
 
 class OSCredentials(object):
@@ -50,6 +54,7 @@ class OSCredentials(object):
   and provide the credentials.
   '''
   cred = dict()
+  keystone_cred = dict()
   keystone_v3_cred = dict()
 
   def __init__(self, options):
@@ -59,38 +64,74 @@ class OSCredentials(object):
 
   def environment_credentials(self):
     try:
+      self.cred['auth_url']   = os.environ['OS_AUTH_URL']
+      self.cred['username']   = os.environ['OS_USERNAME']
+      self.cred['api_key']    = os.environ['OS_PASSWORD']
+      self.cred['project_id'] = os.environ['OS_TENANT_NAME']
+      # Keystone only entries
+      self.keystone_cred['auth_url']    = os.environ['OS_AUTH_URL']
+      self.keystone_cred['username']    = os.environ['OS_USERNAME']
+      self.keystone_cred['password']    = os.environ['OS_PASSWORD']
+      self.keystone_cred['tenant_name'] = os.environ['OS_TENANT_NAME']
       # Keystone v3 only entries
       self.keystone_v3_cred['auth_url']    = os.environ['OS_AUTH_URL']
-      self.keystone_v3_cred['user_id']    = os.environ['OS_USERNAME']
+      self.keystone_v3_cred['username']    = os.environ['OS_USERNAME']
       self.keystone_v3_cred['password']    = os.environ['OS_PASSWORD']
-      self.keystone_v3_cred['project_id'] = os.environ['OS_TENANT_NAME']
+      self.keystone_v3_cred['project_name'] = os.environ['OS_TENANT_NAME']
       self.keystone_v3_cred['user_domain_name'] = os.environ['OS_USER_DOMAIN_NAME']
       self.keystone_v3_cred['project_domain_name'] = os.environ['OS_PROJECT_DOMAIN_NAME']
     except KeyError:
       pass
 
   def options_credentials(self, options):
-    options.user_domain_name = 'Default'
+    if options.auth_url: self.cred['auth_url']   = options.auth_url
+    if options.username: self.cred['username']   = options.username
+    if options.password: self.cred['api_key']    = options.password
+    if options.tenant  : self.cred['project_id'] = options.tenant
+    # Keystone only entries
+    if options.auth_url: self.keystone_cred['auth_url']    = options.auth_url
+    if options.username: self.keystone_cred['username']    = options.username
+    if options.password: self.keystone_cred['password']    = options.password
+    if options.tenant  : self.keystone_cred['tenant_name'] = options.tenant
+    # Keystone v3 only entries
     if options.auth_url: self.keystone_v3_cred['auth_url']    = options.auth_url
     if options.username: self.keystone_v3_cred['username']    = options.username
     if options.password: self.keystone_v3_cred['password']    = options.password
-    if options.projectname  : self.keystone_v3_cred['project_name'] = options.projectname
-    if options.domainname: self.keystone_v3_cred['user_domain_name'] = options.domainname
-    if options.domainname: self.keystone_v3_cred['project_domain_name'] = options.domainname
+    if options.tenant  : self.keystone_v3_cred['project_name'] = options.tenant
+    if options.user_and_project_domain_name:
+        self.keystone_v3_cred['user_domain_name'] = options.user_and_project_domain_name
+        self.keystone_v3_cred['project_domain_name'] = options.user_and_project_domain_name
+  def credentials_available(self):
+    for key in ['auth_url', 'username', 'api_key', 'project_id']:
+      if not key in self.cred:
+        raise CredentialsMissingException(key=key)
+    for key in ['auth_url', 'username', 'password', 'tenant_name']:
+      if not key in self.keystone_cred:
+        raise CredentialsMissingException(key=key)
+    for key in ['auth_url', 'username', 'password', 'project_name', 'user_domain_name', 'project_domain_name']:
+      if not key in self.keystone_v3_cred:
+        raise CredentialsMissingException(key=key)
+
+  def provide(self):
+    return self.cred
+
+  def provide_keystone(self):
+    return self.keystone_cred
 
   def provide_keystone_v3(self):
     return self.keystone_v3_cred
 
-  def credentials_available(self):
-    for key in ['auth_url', 'username', 'password', 'project_name']: 
-      if not key in self.keystone_v3_cred:
-        raise CredentialsOrParametersMissingException(key=key)
+def keystone_session_v3(options):
+  creds = OSCredentials(options).provide_keystone_v3()
+  auth = identity.v3.Password(**creds)
+  sessionx = session.Session(auth=auth)
+  return sessionx
 
 class AntiAffinityChecker:
   dict_ = {}
   def __init__(self, options):
-    self.keystone_session = session.Session(
-        auth=v3.Password(**self.getCredentials()))
+    #creds = OSCredentials(options).provide_keystone_v3()
+    self.keystone_session = keystone_session_v3(options)
     self.keystone_v3 = keystoneclient_v3.Client(
         session=self.keystone_session)
     self.nova = nova.Client("2.1", session=self.keystone_session)
@@ -192,20 +233,19 @@ class AntiAffinityChecker:
 
 
 def main():
-    '''
-    Return Nagios status code
-    '''
-    usage = '%prog { swift | ?? }'
-    parser = optparse.OptionParser(usage)
-    parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
-    parser.add_option("-u", "--username", dest='username', help='username')
-    parser.add_option("-p", "--password", dest='password', help='password')
-    parser.add_option("-n", "--projectname", dest='projectname', help='project name')
-    parser.add_option("-d", "--domainname", dest='domainname', help='domain name')
+  '''
+  Return Nagios status code
+  '''
+  usage = '%prog { swift | ?? }'
+  parser = optparse.OptionParser(usage)
+  parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
+  parser.add_option("-u", "--username", dest='username', help='username')
+  parser.add_option("-p", "--password", dest='password', help='password')
+  parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
+  parser.add_option("-e", "--domain", dest='user_and_project_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
 
-    (options, args) = parser.parse_args()
-    anti_affinity_checker = AntiAffinityChecker(options)
-    anti_affinity_checker.get_servers()
+  (options, args) = parser.parse_args()
+  anti_affinity_checker = AntiAffinityChecker(options)
 
 if __name__ == '__main__':
   main()
