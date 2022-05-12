@@ -236,7 +236,7 @@ def main():
   '''
   Return Nagios status code
   '''
-  usage = '%prog { swift | ?? }'
+  usage = '%prog { keystone | nova }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
