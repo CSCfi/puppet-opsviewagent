@@ -16,6 +16,7 @@ from keystoneauth1 import loading
 from keystoneauth1 import session
 from keystoneauth1 import identity
 from keystoneclient.v3 import client as keystoneclient_v3
+import logging
 
 import optparse
 import os
