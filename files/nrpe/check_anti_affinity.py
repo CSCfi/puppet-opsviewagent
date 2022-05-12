@@ -243,6 +243,7 @@ def main():
   parser.add_option("-p", "--password", dest='password', help='password')
   parser.add_option("-t", "--tenant", dest='tenant', help='tenant name')
   parser.add_option("-e", "--domain", dest='user_and_project_domain_name', help='domain is used for both user_domain_name and project_domain_name, this might need to be updated in the future')
+  parser.add_option("-j", "--milliseconds", dest='milliseconds', action='store_true', help='Show time in milliseconds')
 
   (options, args) = parser.parse_args()
   anti_affinity_checker = AntiAffinityChecker(options)
