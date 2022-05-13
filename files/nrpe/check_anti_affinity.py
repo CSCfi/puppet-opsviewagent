@@ -224,11 +224,11 @@ class AntiAffinityChecker:
         list_server_group.append(server_group.id)
 
     if exit_code == NAGIOS_STATE_OK:
-      output = 'OK : The following server groups with soft-anti-affinity have conflicts:'
+      output = 'OK : The following server groups with soft-anti-affinity have conflicts: '
     else:
-      output = 'CRITICAL : The following server groups have conflicts:'
+      output = 'CRITICAL : The following server groups have conflicts: '
 
-    output = output + ",".join(str(id) for id in list_server_group)
+    output = output + ", ".join(str(id) for id in list_server_group)
     print(output)
     exit(exit_code)
 
