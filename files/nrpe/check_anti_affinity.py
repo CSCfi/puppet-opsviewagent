@@ -213,20 +213,20 @@ class AntiAffinityChecker:
   def execute_check(self, server_group_list):
 
     if len(server_group_list) == 0:
-      print("OK| There is no conflict")
+      print("OK : There is no conflict")
       sys.exit(NAGIOS_STATE_OK)
 
-    exit_code = NAGIOS_STATE_WARNING
+    exit_code = NAGIOS_STATE_OK
     list_server_group = []
     for server_group in server_group_list:
       if server_group.policy == "anti-affinity":
         exit_code = NAGIOS_STATE_CRITICAL
         list_server_group.append(server_group.id)
 
-    if exit_code == NAGIOS_STATE_WARNING:
-      output = 'WARNING | The following server groups have conflicts:'
+    if exit_code == NAGIOS_STATE_OK:
+      output = 'OK : The following server groups with soft-anti-affinity have conflicts:'
     else:
-      output = 'CRITICAL | The following server groups have conflicts:'
+      output = 'CRITICAL : The following server groups have conflicts:'
 
     output = output + ",".join(str(id) for id in list_server_group)
     print(output)
