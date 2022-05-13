@@ -217,18 +217,23 @@ class AntiAffinityChecker:
       sys.exit(NAGIOS_STATE_OK)
 
     exit_code = NAGIOS_STATE_OK
-    list_server_group = []
+    list_server_group_anti_affinity = []
+    list_server_group_soft_anti_affinity = []
+
     for server_group in server_group_list:
       if server_group.policy == "anti-affinity":
         exit_code = NAGIOS_STATE_CRITICAL
-        list_server_group.append(server_group.id)
+        list_server_group_anti_affinity.append(server_group.id)
+      else:
+        list_server_group_soft_anti_affinity.append(server_group.id)
 
     if exit_code == NAGIOS_STATE_OK:
       output = 'OK : The following server groups with soft-anti-affinity have conflicts: '
+      output = output + ", ".join(str(id) for id in list_server_group_soft_anti_affinity)
     else:
       output = 'CRITICAL : The following server groups have conflicts: '
+      output = output + ", ".join(str(id) for id in list_server_group_anti_affinity)
 
-    output = output + ", ".join(str(id) for id in list_server_group)
     print(output)
     exit(exit_code)
 
