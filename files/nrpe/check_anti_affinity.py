@@ -196,7 +196,7 @@ class AntiAffinityChecker:
         if vm_hypervisor_id is None:
           continue
         if vm_hypervisor_id not in hosts.keys():
-          hosts[vm_hypervisor_id] = set([])
+          hosts[vm_hypervisor_id] = set()
         hosts[vm_hypervisor_id].add(vm_id)
       for host_id in hosts.keys():
         if len(hosts[host_id]) > 1:
@@ -204,7 +204,7 @@ class AntiAffinityChecker:
             ServerGroup(
               server_group.id,
               server_group.policies[0],
-              list(hosts[vm_hypervisor_id])
+              list(hosts[host_id])
             )
           )
 
