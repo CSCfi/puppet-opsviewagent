@@ -422,7 +422,7 @@ class OSGhostInstanceCheck():
   def __init__(self, options):
     self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
 
-  def get_nova_instance_list(self):
+  def get_nova_instance_list(self, status=None):
 
     # The servers.list() will fail unless you set a bunch of parameters
     search_opts = {'all_tenants': True,
@@ -432,7 +432,7 @@ class OSGhostInstanceCheck():
                    'name': None,
                    'image': None,
                    'flavor': None,
-                   'status': None,
+                   'status': status,
                    'tenant_id': None,
                    'host': None,
                    'deleted': False,
@@ -516,6 +516,7 @@ class OSGhostInstanceCheck():
     Compare both lists of hosts and report any differences
     '''
     novaInstances = self.get_nova_instance_list()
+    novaVerifyResizeInstances = self.get_nova_instance_list('VERIFY_RESIZE')
     virshInstances = self.get_virsh_instance_list()
 
     virshGhosts = []
@@ -526,7 +527,7 @@ class OSGhostInstanceCheck():
 
     novaGhosts = []
     for virshInstance in virshInstances:
-      if not virshInstance in novaInstances:
+      if not virshInstance in novaInstances and not any(virshInstance[0] in verifyResizeInstance for verifyResizeInstance in novaVerifyResizeInstances):
         logging.info(virshInstance[0] + ' not found from nova')
         novaGhosts.append(virshInstance)
 
