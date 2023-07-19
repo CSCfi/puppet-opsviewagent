@@ -685,6 +685,9 @@ class OSL3Agent():
   '''
   Check all Neutron L3 agents are alive
   '''
+
+  options = dict()
+
   def __init__(self, options):
     self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
 
@@ -694,8 +697,6 @@ class OSL3Agent():
     if str(l3agents.keys()) == "[u'agents']":
       for item in l3agents.values():
         for x in item:
-          print(x['alive'])
-          print(x['admin_state_up'])
           if x['alive'] == True and x['admin_state_up'] == True:
             OK = 1
           elif x['alive'] == False and x['admin_state_up'] == False:
@@ -708,13 +709,10 @@ class OSL3Agent():
       UNKNOWN = 1
 
     if CRITICAL == 1:
-      print('CRIT!!!!!!!!!!!')
       raise NeutronL3AgentsCritical(msgs=l3agents)
     elif WARNING == 1:
-      print('WARN!!!!!!!!!!!')
       raise NeutronL3AgentsWarning(msgs=l3agents)
     elif UNKNOWN == 1:
-      print('UNKNOWN!!!!!!!!!!!')
       raise NeutronL3AgentsUnknown(msgs=l3agents)
     else:
       logging.info('All running L3 agents are alive')
@@ -729,7 +727,7 @@ class OSVolumeErrorCheck():
   ''' Ghosthunting for volumes in "error " state. '''
 
   options = dict()
-	
+
   def __init__(self, options):
     self.options = options
     self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
