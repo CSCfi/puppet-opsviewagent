@@ -106,6 +106,15 @@ class CinderServiceDownException(CheckOpenStackException):
 class CinderServiceDisabledException(CheckOpenStackException):
   msg_fmt = "Cinder Services are disabled %(msgs)s"
 
+class NeutronL3AgentsUnknown(CheckOpenStackException):
+  msg_fmt = "Neutron L3 agent states are unknown \n %(msgs)s"
+
+class NeutronL3AgentsWarning(CheckOpenStackException):
+  msg_fmt = "Neutron L3 agent has admin_state_up=False and alive=False \n %(msgs)s"
+
+class NeutronL3AgentsCritical(CheckOpenStackException):
+  msg_fmt = "Neutron L3 agent has admin_state_up=True and alive=False \n %(msgs)s"
+
 class TimeStateMachine():
   '''
   This class can be used to mesure how long it takes to run a function.
@@ -672,11 +681,55 @@ class OSGhostNodeCheck():
     except:
       raise
 
+class OSL3Agent():
+  '''
+  Check all Neutron L3 agents are alive
+  '''
+  def __init__(self, options):
+    self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
+
+  def check_bad_l3_agents(self):
+    l3agents = self.neutron.list_agents(agent_type='L3 agent')
+
+    if str(l3agents.keys()) == "[u'agents']":
+      for item in l3agents.values():
+        for x in item:
+          print(x['alive'])
+          print(x['admin_state_up'])
+          if x['alive'] == True and x['admin_state_up'] == True:
+            OK = 1
+          elif x['alive'] == False and x['admin_state_up'] == False:
+            WARNING = 1
+          elif x['alive'] == False and x['admin_state_up'] == True:
+            CRITICAL = 1
+          else:
+            UNKNOWN = 1
+    else:
+      UNKNOWN = 1
+
+    if CRITICAL == 1:
+      print('CRIT!!!!!!!!!!!')
+      raise NeutronL3AgentsCritical(msgs=l3agents)
+    elif WARNING == 1:
+      print('WARN!!!!!!!!!!!')
+      raise NeutronL3AgentsWarning(msgs=l3agents)
+    elif UNKNOWN == 1:
+      print('UNKNOWN!!!!!!!!!!!')
+      raise NeutronL3AgentsUnknown(msgs=l3agents)
+    else:
+      logging.info('All running L3 agents are alive')
+
+  def execute(self):
+    try:
+      self.check_bad_l3_agents()
+    except:
+      raise
+
 class OSVolumeErrorCheck():
   ''' Ghosthunting for volumes in "error " state. '''
 
   options = dict()
-
+	
   def __init__(self, options):
     self.options = options
     self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
@@ -1129,7 +1182,7 @@ def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
-  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | capacity | barbican | cinder | glance | heat | keystone | magnum | neutron | nova }'
+  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | l3agent | capacity | barbican | cinder | glance | heat | keystone | magnum | neutron | nova }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
@@ -1202,6 +1255,7 @@ def execute_check(options, args):
     'ghostvolumessh': OSGhostVolumeCheck,
     'ghostvolume': OSVolumeErrorCheck,
     'ghostnodes': OSGhostNodeCheck,
+    'l3agent': OSL3Agent,
     'capacity': OSCapacityCheck,
     'barbican': OSBarbicanAvailability,
     'cinder': OSCinderAvailability,
@@ -1301,6 +1355,15 @@ def main():
   except CinderServiceDisabledException as e:
     print(e)
     exit_with_stats(NAGIOS_STATE_WARNING)
+  except NeutronL3AgentsUnknown as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_UNKNOWN)
+  except NeutronL3AgentsWarning as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_WARNING)
+  except NeutronL3AgentsCritical as e:
+    print(e)
+    exit_with_stats(NAGIOS_STATE_CRITICAL)
   #except Exception as e:
   #  print "{0}: {1}".format(e.__class__.__name__, e)
   #  exit_with_stats(NAGIOS_STATE_CRITICAL)
