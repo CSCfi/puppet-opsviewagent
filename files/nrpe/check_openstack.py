@@ -702,13 +702,13 @@ class OSL3Agent():
             OK = 1
           elif x['alive'] == False and x['admin_state_up'] == False:
             WARNING = 1
-            err_l3agents.append("%s on %s" % (x['binary'],x['host']))
+            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (x['binary'],x['admin_state_up'],x['alive'],x['host']))
           elif x['alive'] == False and x['admin_state_up'] == True:
             CRITICAL = 1
-            err_l3agents.append("%s on %s" % (x['binary'],x['host']))
+            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (x['binary'],x['admin_state_up'],x['alive'],x['host']))
           else:
             UNKNOWN = 1
-            err_l3agents.append("%s on %s" % (x['binary'],x['host']))
+            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (x['binary'],x['admin_state_up'],x['alive'],x['host']))
     else:
       UNKNOWN = 1
       err_l3agents = l3agents
