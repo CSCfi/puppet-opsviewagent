@@ -692,6 +692,7 @@ class OSL3Agent():
     self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
 
   def check_bad_l3_agents(self):
+    err_l3agents = []
     l3agents = self.neutron.list_agents(agent_type='L3 agent')
 
     if str(l3agents.keys()) == "[u'agents']":
@@ -701,19 +702,23 @@ class OSL3Agent():
             OK = 1
           elif x['alive'] == False and x['admin_state_up'] == False:
             WARNING = 1
+            err_l3agents.append("%s on %s" % (x['binary'],x['host']))
           elif x['alive'] == False and x['admin_state_up'] == True:
             CRITICAL = 1
+            err_l3agents.append("%s on %s" % (x['binary'],x['host']))
           else:
             UNKNOWN = 1
+            err_l3agents.append("%s on %s" % (x['binary'],x['host']))
     else:
       UNKNOWN = 1
+      err_l3agents = l3agents
 
     if CRITICAL == 1:
-      raise NeutronL3AgentsCritical(msgs=l3agents)
+      raise NeutronL3AgentsCritical(msgs=err_l3agents)
     elif WARNING == 1:
-      raise NeutronL3AgentsWarning(msgs=l3agents)
+      raise NeutronL3AgentsWarning(msgs=err_l3agents)
     elif UNKNOWN == 1:
-      raise NeutronL3AgentsUnknown(msgs=l3agents)
+      raise NeutronL3AgentsUnknown(msgs=err_l3agents)
     else:
       logging.info('All running L3 agents are alive')
 
