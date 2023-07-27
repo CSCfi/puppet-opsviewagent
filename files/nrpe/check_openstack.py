@@ -1195,7 +1195,7 @@ def parse_command_line():
   Parse command line and execute check according to command line arguments
   '''
   usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | l3agent' \
-          '| capacity | barbican | cinder | glance | heat | keystone | magnum | neutron | nova }'
+          ' | capacity | barbican | cinder | glance | heat | keystone | magnum | neutron | nova }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
