@@ -692,35 +692,44 @@ class OSL3Agent():
     self.neutron = neutronclient.Client('2', session=keystone_session_v3(options))
 
   def check_bad_l3_agents(self):
-    err_l3agents = []
+    err_l3agents = list()
     l3agents = self.neutron.list_agents(agent_type='L3 agent')
 
-    if str(l3agents.keys()) == "[u'agents']":
-      for item in l3agents.values():
-        for x in item:
-          if x['alive'] == True and x['admin_state_up'] == True:
-            OK = 1
-          elif x['alive'] == False and x['admin_state_up'] == False:
-            WARNING = 1
-            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (x['binary'],x['admin_state_up'],x['alive'],x['host']))
-          elif x['alive'] == False and x['admin_state_up'] == True:
-            CRITICAL = 1
-            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (x['binary'],x['admin_state_up'],x['alive'],x['host']))
-          else:
-            UNKNOWN = 1
-            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (x['binary'],x['admin_state_up'],x['alive'],x['host']))
+    if 'agents' in l3agents:
+      for agent in l3agents['agents']:
+        if agent['alive'] == True and agent['admin_state_up'] == True:
+          OK = 1
+        elif agent['alive'] == False and agent['admin_state_up'] == False:
+          WARNING = 1
+          err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
+                                                                          agent['binary'],
+                                                                          agent['admin_state_up'],
+                                                                          agent['alive'],
+                                                                          agent['host']))
+        elif agent['alive'] == False and agent['admin_state_up'] == True:
+          CRITICAL = 1
+          err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
+                                                                          agent['binary'],
+                                                                          agent['admin_state_up'],
+                                                                          agent['alive'],
+                                                                          agent['host']))
+        else:
+          UNKNOWN = 1
+          err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
+                                                                          agent['binary'],
+                                                                          agent['admin_state_up'],
+                                                                          agent['alive'],
+                                                                          agent['host']))
     else:
-      UNKNOWN = 1
-      err_l3agents = l3agents
+      raise NeutronL3AgentsUnknown(msgs=l3agents)
 
     if CRITICAL == 1:
       raise NeutronL3AgentsCritical(msgs=err_l3agents)
-    elif WARNING == 1:
+    if WARNING == 1:
       raise NeutronL3AgentsWarning(msgs=err_l3agents)
-    elif UNKNOWN == 1:
+    if UNKNOWN == 1:
       raise NeutronL3AgentsUnknown(msgs=err_l3agents)
-    else:
-      logging.info('All running L3 agents are alive')
+    logging.info('All running L3 agents are alive')
 
   def execute(self):
     try:
@@ -1185,7 +1194,8 @@ def parse_command_line():
   '''
   Parse command line and execute check according to command line arguments
   '''
-  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | l3agent | capacity | barbican | cinder | glance | heat | keystone | magnum | neutron | nova }'
+  usage = '%prog { instance | volume | ghostinstance | ghostvolumessh | ghostvolume| ghostnodes | l3agent' \
+          '| capacity | barbican | cinder | glance | heat | keystone | magnum | neutron | nova }'
   parser = optparse.OptionParser(usage)
   parser.add_option("-a", "--auth_url", dest='auth_url', help='identity endpoint URL')
   parser.add_option("-u", "--username", dest='username', help='username')
