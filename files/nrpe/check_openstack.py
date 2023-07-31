@@ -693,6 +693,8 @@ class OSL3Agent():
 
   def check_bad_l3_agents(self):
     err_l3agents = list()
+    OK = WARNING = CRITICAL = UNKNOWN = 0
+
     l3agents = self.neutron.list_agents(agent_type='L3 agent')
 
     if 'agents' in l3agents:
