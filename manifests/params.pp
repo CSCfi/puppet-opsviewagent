@@ -3,7 +3,7 @@ class opsviewagent::params {
     'CentOS': {
       $repo_url = "http://downloads.opsview.com/opsview-core/latest/yum/centos/${::operatingsystemmajrelease}Server/\$basearch"
       case $::operatingsystemmajrelease {
-        '7': {
+        '7','8': {
           $firewall_manager = 'firewalld'
         }
         '6': {
