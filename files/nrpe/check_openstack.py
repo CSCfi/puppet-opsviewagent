@@ -12,7 +12,7 @@ import optparse
 import novaclient.client as nova
 from novaclient.api_versions import APIVersion
 import cinderclient.exceptions
-import cinderclient.v1.client as cinder
+import cinderclient.client as cinder
 from neutronclient.neutron import client as neutronclient
 import keystoneclient.v2_0.client as keystoneclient
 
@@ -550,7 +550,7 @@ class OSGhostInstanceCheck():
     except:
       raise
 
-class OSGhostVolumeCheck(cinder.Client):
+class OSGhostVolumeCheck():
   options = dict()
 
   def __init__(self, options):
@@ -998,7 +998,7 @@ class OSBarbicanAvailability():
     except:
       raise
 
-class OSCinderAvailability(cinder.Client):
+class OSCinderAvailability():
   '''
   Check cinder API call length by using list volume
   '''
@@ -1020,7 +1020,7 @@ class OSCinderAvailability(cinder.Client):
     except:
       raise
 
-class OSCinderServiceAvailability(cinder.Client):
+class OSCinderServiceAvailability():
 
   def __init__(self, options):
     self.cinder = cinderclient.client.Client('3', session=keystone_session_v3(options))
