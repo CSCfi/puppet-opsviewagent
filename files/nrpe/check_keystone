@@ -73,6 +73,18 @@ class CheckKeystone(keystone.Client):
       raise CheckException("Can not query CSC stats. Domain not found: %s" % domain_name)
 
     projects = self.projects.list()
+
+    project_count_enabled=0
+    project_count_disabled=0
+    project_count_total=0
+
+    for project in projects:
+        project_count_total += 1
+        if "enabled=False" in str(project):
+            project_count_disabled += 1
+        else:
+            project_count_enabled += 1
+
     users    = self.users.list(domain=domain_id)
     # remove training and system users from user list
     users    = filter(lambda user: 'trng' not in user.name, users)
@@ -86,8 +98,8 @@ class CheckKeystone(keystone.Client):
     # Get amount of projects per role
     roles_string = self.projects_per_role()
 
-    return "'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s %s" % \
-           (len(projects), len(uniq_users), len(csc_users),
+    return "'projects'=%s 'projectsenabled'=%s 'projectsdisabled'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s %s" % \
+           (project_count_total, project_count_enabled, project_count_disabled, len(uniq_users), len(csc_users),
             len(uniq_users) - len(csc_users), roles_string)
 
   def projects_per_role(self):
