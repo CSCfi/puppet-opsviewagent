@@ -71,7 +71,7 @@ for line in $output; do
         ERRORS=$((ERRORS + 1))
     fi
 done
-echo "$VDS Virtual Drives found $ERRORS degraded"
+echo "$VDS Virtual Drives found, $ERRORS degraded"
 if [ $ERRORS -eq 0 ] ; then
     exit ${STATE_OK}
 else
