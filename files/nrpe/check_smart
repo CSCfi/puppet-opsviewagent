@@ -103,7 +103,7 @@ if ($text_mode) {
 		exit(3);
 	}
 	while (<SMARTCTL>) {
-		last if (/=== START OF READ SMART DATA SECTION ===/);
+		last if (/=== START OF (READ |)SMART DATA SECTION ===/);
 	}
 	$out = <SMARTCTL>;
 	print $out;
