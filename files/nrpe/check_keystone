@@ -72,7 +72,7 @@ class CheckKeystone(keystone.Client):
     except Exception:
       raise CheckException("Can not query CSC stats. Domain not found: %s" % domain_name)
 
-    # List projects enabled and disabled projects
+    # List enabled and disabled projects
     projects = self.projects.list()
     projects_enabled = []
     projects_disabled = []
