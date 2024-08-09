@@ -72,8 +72,10 @@ class CheckKeystone(keystone.Client):
     except Exception:
       raise CheckException("Can not query CSC stats. Domain not found: %s" % domain_name)
 
-    # List enabled and disabled projects
+    # Make a list of projects which are enabled/disabled
     projects = self.projects.list()
+    #for project in projects:
+    #  print(project)
     projects_enabled = []
     projects_disabled = []
     for project in projects:
@@ -86,23 +88,45 @@ class CheckKeystone(keystone.Client):
         id=id.split(", is_domain=False, ",1)[0]
         projects_disabled.append(id)
 
-    # Get id of a role named object_store_user
+    # Check roles and add counter for projects
     roles = self.roles.list()
-    for role in roles:
-      if ", name=object_store_user, " in str(role):
-        line = str(role).replace('<Role ', '').replace('>', '')
-        dictionary = dict(subString.split("=") for subString in line.split(", "))
-        for (key, value) in dictionary.items():
-          if key == "id":
-            object_store_user_role_id=value
+    roles_dictlist = []
 
-    # List enabled projects with role object_store_user
+    for role in roles:
+      print(role)
+      line = str(role).replace('<Role ', '').replace('>', '')
+      dictionary = dict(subString.split("=") for subString in line.split(", "))
+      dictionary['count'] = 0
+      roles_dictlist.append(dictionary)
+
+    # loop role_assignments
     role_assignments = self.role_assignments.list()
-    projects_enabled_with_object_store_user=[]
-    for project_id in projects_enabled:
-      for assignment in role_assignments:
-        if object_store_user_role_id in str(assignment) and project_id in str(assignment):
-          projects_enabled_with_object_store_user.append(project_id)
+
+    for assignment in role_assignments:
+      line = str(assignment).replace('<RoleAssignment ', '').replace('>', '')
+      dictionary = dict(subString.split("=") for subString in line.split(", "))
+      assignment_project_id = dictionary.get('scope').replace('{\'project\': {\'id\': \'','').replace('\'}}','').replace('{\'domain\': {\'id\': \'','')
+
+      # If assignment is related to enabled project raise counter
+      if assignment_project_id in projects_enabled:
+        roles_dictlist_new = []
+        for role in roles_dictlist:
+          if role.get('id') in str(assignment):
+            role['count'] += 1
+          roles_dictlist_new.append(role)
+        roles_dictlist = roles_dictlist_new
+
+    # Check roles and enabled projects counts
+    #for role in roles_dictlist:
+    #  print(role.get('name') + ' : ' + str(role.get('count')))
+
+    for role in roles_dictlist:
+      if role.get('name') == 'object_store_user':
+        projects_enabled_with_object_store_user=role.get('count')
+
+    #projects_enabled_with_object_store_user=[]
+    #projects_enabled_with_member=[]
+    #projects_enabled_with_admin=[]
 
     users    = self.users.list(domain=domain_id)
     # remove training and system users from user list
@@ -118,7 +142,7 @@ class CheckKeystone(keystone.Client):
     roles_string = self.projects_per_role()
 
     return "'projects'=%s 'projectsenabled'=%s 'projectsdisabled'=%s 'projectsenabledwithobjectstoreuser'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s %s" % \
-           (len(projects), len(projects_enabled), len(projects_disabled), len(projects_enabled_with_object_store_user), len(uniq_users), len(csc_users),
+           (len(projects), len(projects_enabled), len(projects_disabled), projects_enabled_with_object_store_user, len(uniq_users), len(csc_users),
             len(uniq_users) - len(csc_users), roles_string)
 
   def projects_per_role(self):
