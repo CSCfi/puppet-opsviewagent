@@ -74,8 +74,6 @@ class CheckKeystone(keystone.Client):
 
     # Make a list of projects which are enabled/disabled
     projects = self.projects.list()
-    #for project in projects:
-    #  print(project)
     projects_enabled = []
     projects_disabled = []
     for project in projects:
@@ -91,7 +89,6 @@ class CheckKeystone(keystone.Client):
     # Check roles and add counter for projects
     roles = self.roles.list()
     roles_dictlist = []
-
     for role in roles:
       print(role)
       line = str(role).replace('<Role ', '').replace('>', '')
@@ -99,15 +96,12 @@ class CheckKeystone(keystone.Client):
       dictionary['count'] = 0
       roles_dictlist.append(dictionary)
 
-    # loop role_assignments
+    # loop role_assignments and If assignment is related to an enabled project raise counter
     role_assignments = self.role_assignments.list()
-
     for assignment in role_assignments:
       line = str(assignment).replace('<RoleAssignment ', '').replace('>', '')
       dictionary = dict(subString.split("=") for subString in line.split(", "))
       assignment_project_id = dictionary.get('scope').replace('{\'project\': {\'id\': \'','').replace('\'}}','').replace('{\'domain\': {\'id\': \'','')
-
-      # If assignment is related to enabled project raise counter
       if assignment_project_id in projects_enabled:
         roles_dictlist_new = []
         for role in roles_dictlist:
@@ -117,16 +111,9 @@ class CheckKeystone(keystone.Client):
         roles_dictlist = roles_dictlist_new
 
     # Check roles and enabled projects counts
-    #for role in roles_dictlist:
-    #  print(role.get('name') + ' : ' + str(role.get('count')))
-
     for role in roles_dictlist:
       if role.get('name') == 'object_store_user':
         projects_enabled_with_object_store_user=role.get('count')
-
-    #projects_enabled_with_object_store_user=[]
-    #projects_enabled_with_member=[]
-    #projects_enabled_with_admin=[]
 
     users    = self.users.list(domain=domain_id)
     # remove training and system users from user list
