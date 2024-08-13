@@ -135,8 +135,7 @@ class CheckKeystone(keystone.Client):
 
 def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
   '''
-  Exits with the specified exit_code and output in the format
-  nagios/opsview expects.
+  Exits with the specified exit_code and output in the format nagios/opsview expects.
   '''
   print('Keystone: ' + NAGIOS_STATE[exit_code] + ' | ' + output)
   sys.exit(exit_code)
