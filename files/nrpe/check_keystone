@@ -111,8 +111,8 @@ class CheckKeystone(keystone.Client):
 
     projects_enabled = self.projects.list(enabled=True)
     for role_assignments in role_assignments_list:
-      for k, v in role_assignments.scope.items():
-        assignment_project_id = v['id']
+      for value in role_assignments.scope.values():
+        assignment_project_id = value['id']
       if assignment_project_id in str(projects_enabled):
           role_assignments_list_enabled.append(role_assignments)
 
