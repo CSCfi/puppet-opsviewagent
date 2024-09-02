@@ -110,16 +110,15 @@ class CheckKeystone(keystone.Client):
     roles_per_id = {}
 
     projects_enabled = self.projects.list(enabled=True)
+    projects_enabled_id = []
+    for project in projects_enabled:
+      projects_enabled_id.append(project.id)
+
     for role_assignments in role_assignments_list:
-      if 'project' in role_assignments.scope.keys():
-        test=str(role_assignments).split(', scope={u\'project\': {u\'id\': u\'')
-        test=test[1].split('\'}}')
-        assignment_project_id=test[0]
-      else:
-        for value in role_assignments.scope.values():
-          assignment_project_id = value['id']
-      if assignment_project_id in str(projects_enabled):
-        role_assignments_list_enabled.append(role_assignments)
+      for value in role_assignments.scope.values():
+        assignment_project_id = value['id']
+      if assignment_project_id in projects_enabled_id:
+          role_assignments_list_enabled.append(role_assignments)
 
     # Calculate how many projects per roles
     for role_assignments in role_assignments_list_enabled:
@@ -137,7 +136,7 @@ class CheckKeystone(keystone.Client):
          # Genertate string for def csc_stats
          return_string += " 'role_" + str(role.name) + "'=" + str(roles_per_id[role.id])
        else:
-         return_string += " 'role_" + str(role.name) + "'=" + "0"
+	         return_string += " 'role_" + str(role.name) + "'=" + "0"
     return(return_string)
 
 def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
