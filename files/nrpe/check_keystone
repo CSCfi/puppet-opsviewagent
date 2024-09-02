@@ -118,7 +118,7 @@ class CheckKeystone(keystone.Client):
       for value in role_assignments.scope.values():
         assignment_project_id = value['id']
       if assignment_project_id in projects_enabled_id:
-          role_assignments_list_enabled.append(role_assignments)
+        role_assignments_list_enabled.append(role_assignments)
 
     # Calculate how many projects per roles
     for role_assignments in role_assignments_list_enabled:
@@ -132,11 +132,11 @@ class CheckKeystone(keystone.Client):
     return_string=''
     # Map role ids to role names
     for role in role_names:
-       if role.id in roles_per_id:
-         # Genertate string for def csc_stats
-         return_string += " 'role_" + str(role.name) + "'=" + str(roles_per_id[role.id])
-       else:
-	         return_string += " 'role_" + str(role.name) + "'=" + "0"
+      if role.id in roles_per_id:
+        # Genertate string for def csc_stats
+        return_string += " 'role_" + str(role.name) + "'=" + str(roles_per_id[role.id])
+      else:
+        return_string += " 'role_" + str(role.name) + "'=" + "0"
     return(return_string)
 
 def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
