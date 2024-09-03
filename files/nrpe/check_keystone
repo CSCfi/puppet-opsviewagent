@@ -72,7 +72,11 @@ class CheckKeystone(keystone.Client):
     except Exception:
       raise CheckException("Can not query CSC stats. Domain not found: %s" % domain_name)
 
+    # Make a list of projects
     projects = self.projects.list()
+    projects_enabled = self.projects.list(enabled=True)
+    projects_disabled = self.projects.list(enabled=False)
+
     users    = self.users.list(domain=domain_id)
     # remove training and system users from user list
     users    = filter(lambda user: 'trng' not in user.name, users)
@@ -82,39 +86,62 @@ class CheckKeystone(keystone.Client):
     # list of unique email addresses
     uniq_users = list(set([user.email for user in users]))
     # filter CSC users
-    csc_users  = filter(lambda user: '@csc.fi' in user, uniq_users)
+    csc_users  = list(filter(lambda user: '@csc.fi' in user, uniq_users))
     # Get amount of projects per role
     roles_string = self.projects_per_role()
 
-    return "'projects'=%s 'totalusers'=%s 'cscusers'=%s 'noncscusers'=%s %s" % \
-           (len(projects), len(uniq_users), len(csc_users),
-            len(uniq_users) - len(csc_users), roles_string)
+    return "'projects'=%s \
+'projectsenabled'=%s \
+'projectsdisabled'=%s \
+'totalusers'=%s \
+'cscusers'=%s \
+'noncscusers'=%s %s" % \
+            (len(projects),
+            len(projects_enabled),
+            len(projects_disabled),
+            len(uniq_users),
+            len(csc_users),
+            len(uniq_users) - len(csc_users),
+            roles_string)
 
   def projects_per_role(self):
     role_assignments_list = self.role_assignments.list()
+    role_assignments_list_enabled = []
     roles_per_id = {}
-    # Calculate how many projects per roles
+
+    projects_enabled = self.projects.list(enabled=True)
+    projects_enabled_id = []
+    for project in projects_enabled:
+      projects_enabled_id.append(project.id)
+
     for role_assignments in role_assignments_list:
-       if 'project' in role_assignments.scope.keys():
-         if role_assignments.role['id'] in roles_per_id:
-           roles_per_id[role_assignments.role['id']] +=1
-         else:
-           roles_per_id[role_assignments.role['id']] = 1
+      for value in role_assignments.scope.values():
+        assignment_project_id = value['id']
+      if assignment_project_id in projects_enabled_id:
+        role_assignments_list_enabled.append(role_assignments)
+
+    # Calculate how many projects per roles
+    for role_assignments in role_assignments_list_enabled:
+      if 'project' in role_assignments.scope.keys():
+        if role_assignments.role['id'] in roles_per_id:
+          roles_per_id[role_assignments.role['id']] +=1
+        else:
+          roles_per_id[role_assignments.role['id']] = 1
 
     role_names = self.roles.list()
-    projects_with_role = {}
     return_string=''
     # Map role ids to role names
     for role in role_names:
-       if role.id in roles_per_id:
-         # Genertate string for def csc_stats
-         return_string += " 'role_" + str(role.name) + "'=" + str(roles_per_id[role.id])
+      if role.id in roles_per_id:
+        # Genertate string for def csc_stats
+        return_string += " 'role_" + str(role.name) + "'=" + str(roles_per_id[role.id])
+      else:
+        return_string += " 'role_" + str(role.name) + "'=" + "0"
     return(return_string)
 
 def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
   '''
-  Exits with the specified exit_code and output in the format 
-  nagios/opsview expects.
+  Exits with the specified exit_code and output in the format nagios/opsview expects.
   '''
   print('Keystone: ' + NAGIOS_STATE[exit_code] + ' | ' + output)
   sys.exit(exit_code)
