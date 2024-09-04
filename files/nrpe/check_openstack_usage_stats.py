@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # OpenStack Nagios/OpsView plugin to check utilization statistics.
 # Outputs the following:
