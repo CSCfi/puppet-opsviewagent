@@ -114,19 +114,16 @@ class CheckKeystone(keystone.Client):
     for project in projects_enabled:
       projects_enabled_id.append(project.id)
 
-    for role_assignments in role_assignments_list:
-      for value in role_assignments.scope.values():
-        assignment_project_id = value['id']
-      if assignment_project_id in projects_enabled_id:
-        role_assignments_list_enabled.append(role_assignments)
-
     # Calculate how many projects per roles
-    for role_assignments in role_assignments_list_enabled:
+    for role_assignments in role_assignments_list:
       if 'project' in role_assignments.scope.keys():
-        if role_assignments.role['id'] in roles_per_id:
-          roles_per_id[role_assignments.role['id']] +=1
-        else:
-          roles_per_id[role_assignments.role['id']] = 1
+        for value in role_assignments.scope.values():
+          assignment_project_id = value['id']
+        if assignment_project_id in projects_enabled_id:
+          if role_assignments.role['id'] in roles_per_id:
+            roles_per_id[role_assignments.role['id']] +=1
+          else:
+            roles_per_id[role_assignments.role['id']] = 1
 
     role_names = self.roles.list()
     return_string=''
