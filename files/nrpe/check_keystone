@@ -132,8 +132,6 @@ class CheckKeystone(keystone.Client):
       if role.id in roles_per_id:
         # Genertate string for def csc_stats
         return_string += " 'role_" + str(role.name) + "'=" + str(roles_per_id[role.id])
-      else:
-        return_string += " 'role_" + str(role.name) + "'=" + "0"
     return(return_string)
 
 def exit_output(exit_code=NAGIOS_STATE_OK, output=''):
