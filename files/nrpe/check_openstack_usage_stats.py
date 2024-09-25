@@ -13,6 +13,8 @@ import os
 import time
 import sys
 import argparse
+from functools import reduce
+from more_itertools import ilen
 
 from openstack_credentials import OpenStackCredentials as oscred
 from novaclient.exceptions import NotFound as NovaNotFound
@@ -180,7 +182,7 @@ def main():
 
     total_number_of_vms = len(all_servers)
     users_with_vms = len(set(get_vm_user_ids(all_servers)))
-    total_number_of_users = len(all_users)
+    total_number_of_users = ilen(all_users)
     csc_user_ids_with_vms = get_csc_user_ids_with_vms(all_servers, all_users)
     num_vms_by_csc_users = len(csc_user_ids_with_vms)
     num_csc_users_with_vm = len(set(csc_user_ids_with_vms))

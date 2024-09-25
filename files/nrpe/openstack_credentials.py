@@ -39,12 +39,12 @@ class OpenStackCredentials(object):
 
     def get_nova(self):
         sess = self.session.Session(auth=self.auth)
-        nova = nova_client.Client(2, session=sess)
+        nova = nova_client.Client("2.1", session=sess)
 
         return nova
 
     def get_cinder(self):
         sess = self.session.Session(auth=self.auth)
-        cinder = cinder_client.Client(2, session=sess)
+        cinder = cinder_client.Client("3", session=sess)
 
         return cinder
