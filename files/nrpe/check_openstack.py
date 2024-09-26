@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # OpenStack Nagios/OpsView plugin to check instance and volume creation
 #
@@ -798,7 +798,7 @@ class OSCapacityCheck():
       if os.path.isfile(configFile):
         logging.debug('Found: ' + configFile)
         filehandle = open(configFile, 'r')
-        config = yaml.load(filehandle)
+        config = yaml.load(filehandle, Loader=yaml.FullLoader)
         filehandle.close()
         break # We only care about the first matching file
 
@@ -819,7 +819,7 @@ class OSCapacityCheck():
 
     # list_floatingips() returns a mess at the center of which is a list of
     # dictionaries about the state of each floating ip
-    ips = self.neutron.list_floatingips().items()[0][1]
+    ips = list(self.neutron.list_floatingips().items())[0][1]
 
     # Handle the case where there are no floating ips by returning nothing
     # The rest of this method does not do any sanity checking. Use the --no-ping
@@ -960,7 +960,7 @@ class OSCapacityCheckRAM(OSCapacityCheck):
     results = dict()
     try:
       results.update(self.check_host_aggregate_capacities())
-      resultsx =dict((key, value) for (key, value) in results.iteritems() if '_mem_' in key and 'aggr_' in key)
+      resultsx =dict((key, value) for (key, value) in results.items() if '_mem_' in key and 'aggr_' in key)
     except:
       raise
     return resultsx
@@ -970,7 +970,7 @@ class OSCapacityCheckCPUs(OSCapacityCheck):
     results = dict()
     try:
       results.update(self.check_host_aggregate_capacities())
-      resultsx = dict((key, value) for (key, value) in results.iteritems() if '_cpus_' in key and 'aggr_' in key)
+      resultsx = dict((key, value) for (key, value) in results.items() if '_cpus_' in key and 'aggr_' in key)
     except:
       raise
     return resultsx
