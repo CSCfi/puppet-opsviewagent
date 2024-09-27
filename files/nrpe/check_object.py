@@ -218,8 +218,8 @@ class SwiftPublicAvailability():
       raise ProjectNotAvailableException(msgs=self.tenant)
 
     swift_url = "{}/AUTH_{}/{}".format(self.swift_publicurl,project_id,self.swift_bucket)
-    _response = urllib.urlopen(swift_url)
-    _html = _response.read().decode('utf-8')
+    _response = urllib.request.urlopen(swift_url)
+    _html = _response.reason
 
     if LOCAL_DEBUG:
       print(_html)
