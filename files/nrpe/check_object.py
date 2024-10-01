@@ -149,11 +149,11 @@ class S3PublicAvailability():
     This does not create a public bucket if one does not exist.
     This fails if the bucket does not exist or if it's private.
     """
-    _response = urllib.urlopen(self.options.s3_bucket_url)
-    _html = _response.read()
+    _response = urllib.request.urlopen(self.options.s3_bucket_url)
+    _html = _response.read().decode('utf-8')
 
     if LOCAL_DEBUG:
-      print _html
+      print(_html)
 
     try:
       assert "AccessDenied" not in _html
@@ -218,8 +218,8 @@ class SwiftPublicAvailability():
       raise ProjectNotAvailableException(msgs=self.tenant)
 
     swift_url = "{}/AUTH_{}/{}".format(self.swift_publicurl,project_id,self.swift_bucket)
-    _response = urllib.urlopen(swift_url)
-    _html = _response.read()
+    _response = urllib.request.urlopen(swift_url)
+    _html = _response.reason
 
     if LOCAL_DEBUG:
       print(_html)
@@ -263,12 +263,12 @@ class S3PrivateAvailability():
         subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "create"])
       except:
         # If we can't create we exit so as to not print passwords to stdout
-        print "Could not create ec2 credentials"
+        print("Could not create ec2 credentials")
         sys.exit(NAGIOS_STATE_UNKNOWN)
       res = json.loads(subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "list", "-f", "json"]))
 
     if LOCAL_DEBUG:
-      print res
+      print(res)
     _access_key = res[0]['Access']
     _secret_key = res[0]['Secret']
     _s3_host = options.s3_host
@@ -278,7 +278,7 @@ class S3PrivateAvailability():
   def get_s3_private_buckets(self):
     all_them_buckets = self.conn.get_all_buckets()
     if LOCAL_DEBUG:
-      print all_them_buckets
+      print(all_them_buckets)
 
   def execute(self):
     results = dict()
@@ -305,12 +305,12 @@ class S3FunctionalityTest():
       try:
         subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "create"], stderr=subprocess.STDOUT)
       except:
-        print "Could not create EC2 credentials"
+        print("Could not create EC2 credentials")
         sys.exit(NAGIOS_STATE_UNKNOWN)
       res = json.loads(subprocess.check_output(["openstack", "--os-auth-url", options.auth_url, "--os-username", options.username, "--os-password", options.password, "--os-project-name", options.tenant, "--os-project-domain-name", DEFAULT_DOMAIN_NAME, "--os-user-domain-name", DEFAULT_DOMAIN_NAME, "--os-identity-api-version", "3", "ec2", "credentials", "list", "-f", "json"]))
 
     if LOCAL_DEBUG:
-      print res
+      print(res)
     _access_key = res[0]['Access']
     _secret_key = res[0]['Secret']
     _s3_host = options.s3_host
@@ -409,7 +409,7 @@ def execute_check(options, args):
 
 
   if not command in os_check:
-    print 'Unknown command argument! Use --help.'
+    print('Unknown command argument! Use --help.')
     sys.exit(NAGIOS_STATE_UNKNOWN)
 
   return os_check[command](options).execute()
@@ -462,7 +462,7 @@ def main():
     results = execute_check(options, args)
 
   except Exception as e:
-    print "{0}: {1}".format(e.__class__.__name__, e)
+    print("{0}: {1}".format(e.__class__.__name__, e))
     exit_with_stats(NAGIOS_STATE_CRITICAL)
   
   except ProjectNotAvailableException as e:

@@ -846,14 +846,14 @@ class OSCapacityCheck():
 
     # Our public IP's are used for routers in addition to instances so we must
     # first get the total number of our public IPs assigned to ports
-    ports = self.neutron.list_ports().items()[0][1]
+    ports = list(self.neutron.list_ports().items())[0][1]
     ports_on_public_network = filter(lambda port: port['network_id'] == public_network_id, ports)
 
 
-    allocated_router = filter(lambda port: port['device_owner'] == 'network:router_gateway', ports_on_public_network)
+    allocated_router = list(filter(lambda port: port['device_owner'] == 'network:router_gateway', ports_on_public_network))
     allocated_to_routers = len(allocated_router)
 
-    allocated_dhcp = filter(lambda port: port['device_owner'] == 'network:dhcp', ports_on_public_network)
+    allocated_dhcp = list(filter(lambda port: port['device_owner'] == 'network:dhcp', ports_on_public_network))
     allocated_to_dhcp = len(allocated_dhcp)
 
     # We can work out the numer of IPs used for instances using the information
@@ -861,11 +861,11 @@ class OSCapacityCheck():
     # floating IP interface
 
     ''' Allocated to a tenant but not used '''
-    allocated_not_assigned_ips = filter(lambda ip: ip['fixed_ip_address'] == None, ips)
+    allocated_not_assigned_ips = list(filter(lambda ip: ip['fixed_ip_address'] == None, ips))
     allocated_not_assigned = len(allocated_not_assigned_ips)
 
     ''' Allocated to a tenant and assigned to a vm '''
-    allocated_and_assigned_ips = filter(lambda ip:  ip['status'] == 'ACTIVE', ips)
+    allocated_and_assigned_ips = list(filter(lambda ip:  ip['status'] == 'ACTIVE', ips))
     allocated_and_assigned = len(allocated_and_assigned_ips)
 
     # Add all these together to give a simple metric for all used public IPs
