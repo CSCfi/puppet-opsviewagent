@@ -283,7 +283,7 @@ class OSInstanceCheck(TimeStateMachine):
   def __init__(self, options):
     self.options = options
     self.session = keystone_session_v3(options)
-    self.nova = novaclient.client.Client('2.12', session=self.session)
+    self.nova = novaclient.client.Client('2.79', session=self.session)
     self.neutron = neutronclient.Client('2', session=self.session)
     self.keystone = keystoneclientv3.Client(session=self.session)
 
@@ -429,7 +429,7 @@ class OSGhostInstanceCheck():
   options = dict()
 
   def __init__(self, options):
-    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
+    self.nova = novaclient.client.Client('2.79', session=keystone_session_v3(options))
 
   def get_nova_instance_list(self, status=None):
 
@@ -659,7 +659,7 @@ class OSGhostNodeCheck():
   options = dict()
 
   def __init__(self, options):
-    self.nova = novaclient.client.Client('2.12', session=keystone_session_v3(options))
+    self.nova = novaclient.client.Client('2.79', session=keystone_session_v3(options))
 
   def check_bad_hosts(self):
     services = self.nova.services.list()
@@ -779,7 +779,7 @@ class OSCapacityCheck():
     self.options = options
     self.session = keystone_session_v3(options)
     self.neutron = neutronclient.Client('2', session=self.session )
-    self.nova = novaclient.client.Client('2.12', session=self.session)
+    self.nova = novaclient.client.Client('2.79', session=self.session)
 
   def check_network_capacity(self):
     vlan_params = { 'provider:network_type':'vlan', }
@@ -912,14 +912,14 @@ class OSCapacityCheck():
     host_aggregates = self.nova.aggregates.list()
     novas = self.nova.services.list(binary='nova-compute')
     hypervisors = self.nova.hypervisors.list()
-    enabled = filter(lambda srv: srv.status == 'enabled', novas)
+    enabled = list(filter(lambda srv: srv.status == 'enabled', novas))
     enabled_hosts = map(lambda x: x.host, enabled)
-    enabled_hypervisors = filter(lambda x: x.service['host'] in enabled_hosts, hypervisors)
+    enabled_hypervisors = list(filter(lambda x: x.service['host'] in enabled_hosts, hypervisors))
 
     for aggr in host_aggregates:
       # If a windows aggregate and we have not specified "only windows" then we skip it
       if "windows" in aggr.name and self.options.only_windows == False: continue
-      aggr_hypervisors = filter(lambda hv: hv.hypervisor_hostname in aggr.hosts, enabled_hypervisors)
+      aggr_hypervisors = list(filter(lambda hv: hv.hypervisor_hostname in aggr.hosts, enabled_hypervisors))
 
       total_aggr_cpus = sum(map(lambda hv: hv.vcpus, aggr_hypervisors))
       total_aggr_mem = sum(map(lambda hv: hv.memory_mb, aggr_hypervisors))
