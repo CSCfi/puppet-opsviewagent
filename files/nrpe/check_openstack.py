@@ -913,7 +913,7 @@ class OSCapacityCheck():
     novas = self.nova.services.list(binary='nova-compute')
     hypervisors = self.nova.hypervisors.list()
     enabled = list(filter(lambda srv: srv.status == 'enabled', novas))
-    enabled_hosts = map(lambda x: x.host, enabled)
+    enabled_hosts = list(map(lambda x: x.host, enabled))
     enabled_hypervisors = list(filter(lambda x: x.service['host'] in enabled_hosts, hypervisors))
 
     for aggr in host_aggregates:
