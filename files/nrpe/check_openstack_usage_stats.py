@@ -14,7 +14,6 @@ import time
 import sys
 import argparse
 from functools import reduce
-from more_itertools import ilen
 
 from openstack_credentials import OpenStackCredentials as oscred
 from novaclient.exceptions import NotFound as NovaNotFound
@@ -28,7 +27,7 @@ def get_all_servers(nova):
     return nova.servers.list(search_opts={'all_tenants': True})
 
 def get_list_of_users_with_vms(nova):
-    return map(lambda x: x.user_id, get_all_servers(nova))
+    return list(map(lambda x: x.user_id, get_all_servers(nova)))
 
 def get_number_of_users_with_vms(nova):
     return len(set(get_list_of_users_with_vms(nova)))
@@ -37,18 +36,18 @@ def get_real_users(keystone, user_domain_name="default"):
     user_domain_id = keystone.domains.find(name=user_domain_name).id
     all_users = keystone.users.list(domain=user_domain_id)
 
-    users = filter(lambda user: 'trng' not in user.name, all_users)
-    users = filter(lambda user: hasattr(user, 'email'), users)
-    users = filter(lambda user: '@localhost' not in user.email, users)
+    users = list(filter(lambda user: 'trng' not in user.name, all_users))
+    users = list(filter(lambda user: hasattr(user, 'email'), users))
+    users = list(filter(lambda user: '@localhost' not in user.email, users))
 
     return users
 
 def get_vm_user_ids(servers):
-    return map(lambda x: x.user_id, servers)
+    return list(map(lambda x: x.user_id, servers))
 
 def get_csc_user_ids(users):
-    csc_users = filter(lambda user: '@csc.fi' in user.email, users)
-    return map(lambda x: x.id, csc_users)
+    csc_users = list(filter(lambda user: '@csc.fi' in user.email, users))
+    return list(map(lambda x: x.id, csc_users))
 
 def get_csc_user_ids_with_vms(servers, users):
     csc_vm_users = list()
@@ -182,7 +181,7 @@ def main():
 
     total_number_of_vms = len(all_servers)
     users_with_vms = len(set(get_vm_user_ids(all_servers)))
-    total_number_of_users = ilen(all_users)
+    total_number_of_users = len(all_users)
     csc_user_ids_with_vms = get_csc_user_ids_with_vms(all_servers, all_users)
     num_vms_by_csc_users = len(csc_user_ids_with_vms)
     num_csc_users_with_vm = len(set(csc_user_ids_with_vms))
