@@ -723,13 +723,13 @@ class OSL3Agent():
                not (agent['configurations']['routers'] == 0)
              ):
             CRITICAL = 1
+            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
+                                                                              agent['binary'],
+                                                                              agent['admin_state_up'],
+                                                                              agent['alive'],
+                                                                              agent['host']))
           else:
             OK = 1
-          err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
-                                                                            agent['binary'],
-                                                                            agent['admin_state_up'],
-                                                                            agent['alive'],
-                                                                            agent['host']))
         else:
           UNKNOWN = 1
           err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
