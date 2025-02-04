@@ -716,14 +716,16 @@ class OSL3Agent():
                                                                           agent['alive'],
                                                                           agent['host']))
 
-        elif (
-             (agent['alive'] == True and agent['admin_state_up'] == False) and
-             (not (agent['configurations']['ex_gw_ports'] == 0) or
+        elif agent['alive'] == True and agent['admin_state_up'] == False:
+          if (
+             not (agent['configurations']['ex_gw_ports'] == 0) or
              not (agent['configurations']['floating_ips'] == 0) or
              not (agent['configurations']['interfaces'] == 0) or
              not (agent['configurations']['routers'] == 0))
              ):
-          CRITICAL = 1
+            CRITICAL = 1
+          else:
+            OK = 1
           err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
                                                                             agent['binary'],
                                                                             agent['admin_state_up'],
