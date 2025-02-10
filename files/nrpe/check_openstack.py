@@ -716,20 +716,18 @@ class OSL3Agent():
                                                                           agent['alive'],
                                                                           agent['host']))
         elif agent['alive'] == True and agent['admin_state_up'] == False:
-          if (
-               not (agent['configurations']['ex_gw_ports'] == 0) or
-               not (agent['configurations']['floating_ips'] == 0) or
-               not (agent['configurations']['interfaces'] == 0) or
-               not (agent['configurations']['routers'] == 0)
-             ):
-            CRITICAL = 1
-            err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
-                                                                              agent['binary'],
-                                                                              agent['admin_state_up'],
-                                                                              agent['alive'],
-                                                                              agent['host']))
-          else:
-            OK = 1
+          ports = self.neutron.list_ports()
+          for port in ports['ports']:
+            if port['binding:host_id'] == agent['host']:
+              CRITICAL = 1
+              err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
+                                                                                agent['binary'],
+                                                                                agent['admin_state_up'],
+                                                                                agent['alive'],
+                                                                                agent['host']))
+              break
+            else:
+              OK = 1
         else:
           UNKNOWN = 1
           err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
