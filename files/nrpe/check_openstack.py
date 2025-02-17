@@ -703,25 +703,22 @@ class OSL3Agent():
           OK = 1
         elif agent['alive'] == False and agent['admin_state_up'] == False:
           WARNING = 1
-          err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
-                                                                          agent['binary'],
-                                                                          agent['admin_state_up'],
-                                                                          agent['alive'],
-                                                                          agent['host']))
         elif agent['alive'] == False and agent['admin_state_up'] == True:
           CRITICAL = 1
-          err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
-                                                                          agent['binary'],
-                                                                          agent['admin_state_up'],
-                                                                          agent['alive'],
-                                                                          agent['host']))
+        elif agent['alive'] == True and agent['admin_state_up'] == False:
+          ports = self.neutron.list_ports(**{"binding:host_id" : agent['host'], "device_owner" : ["network:router_gateway", "network:router_interface"]})
+          if ports['ports']:
+            CRITICAL = 1
+          else:
+            OK = 1
         else:
           UNKNOWN = 1
+        if WARNING > 0 or CRITICAL > 0 or UNKNOWN > 0:
           err_l3agents.append("%s (admin_state_up=%s, alive=%s) on %s" % (
-                                                                          agent['binary'],
-                                                                          agent['admin_state_up'],
-                                                                          agent['alive'],
-                                                                          agent['host']))
+                                                                  agent['binary'],
+                                                                  agent['admin_state_up'],
+                                                                  agent['alive'],
+                                                                  agent['host']))
     else:
       raise NeutronL3AgentsUnknown(msgs=l3agents)
 
