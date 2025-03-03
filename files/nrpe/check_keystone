@@ -26,7 +26,9 @@
 import os
 import sys
 import argparse
-import keystoneclient.v3.client as keystone
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
+from keystoneclient.v3 import client as keystone
 
 NAGIOS_STATE_OK       = 0
 NAGIOS_STATE_WARNING  = 1
@@ -48,8 +50,8 @@ class CheckKeystone(keystone.Client):
   Check Keystone functionality
   '''
   def __init__(self, credentials):
-    super(CheckKeystone, self).__init__(**credentials)
-    self.authenticate()
+    self.keystone_session = session.Session(auth=v3.Password(**{k: v for k, v in credentials.items() if k not in ["csc_stats_domain", "milliseconds"]}))
+    super(CheckKeystone, self).__init__(session=self.keystone_session)
 
   def check_service_endpoints(self):
     for service in self.services.list(enabled=True):
@@ -165,6 +167,16 @@ def main():
                       default=os.environ.get('OS_TENANT_ID'),
                       help='Project id to request authorization on. '
                            'Defaults to env[OS_TENANT_ID].')
+  parser.add_argument('--project_domain_name',
+                      metavar='<auth-project-domain-name>',
+                      default=os.environ.get('OS_PROJECT_DOMAIN_NAME'),
+                      help='Name of the domain of the project. '
+                           'Defaults to env[OS_PROJECT_DOMAIN_NAME].')
+  parser.add_argument('--user_domain_name',
+                      metavar='<auth-user-domain-name>',
+                      default=os.environ.get('OS_USER_DOMAIN_NAME'),
+                      help='Name of the domain of the user. '
+                           'Defaults to env[OS_USER_DOMAIN_NAME].')
   parser.add_argument('--domain_name',
                       metavar='<auth-domain-name>',
                       default=os.environ.get('OS_DOMAIN_NAME'),
