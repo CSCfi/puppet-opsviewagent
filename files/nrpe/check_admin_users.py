@@ -16,8 +16,10 @@ class UserChecker():
 
         self.get_users_with_login_shell()
         self.get_admin_users()
+        self.get_sudoers()
 
         self.deployed_users = [u for u in self.all_local_users if u[0] not in self.default_users]
+        self.admin_sudousers = [u for u in self.sudousers if u not in self.default_users]
 
 
     def fetch_json(self):
@@ -64,6 +66,24 @@ class UserChecker():
         self.missing_users = list(admin_usernames.difference(deployed_usernames))
         self.extra_users = list(deployed_usernames.difference(admin_usernames))
 
+    def get_sudoers(self):
+        sudofiles = os.listdir("/etc/sudoers.d")
+        self.sudousers = set()
+        for sudofile in sudofiles:
+            with open("/etc/sudoers.d/" + sudofile, "r") as sf:
+                lines = [l.strip()  for l in sf.readlines()]
+                for line in lines:
+                    if len(line) > 0 and line[0] != "#":
+                        if line.startswith("Defaults"):
+                            continue
+                        sudouser = line.split(" ")[0]
+                        self.sudousers.add(sudouser)
+
+    def check_sudoers(self):
+        admin_usernames = set([ k for k in self.selected_admin_users.keys() if self.selected_admin_users[k]["state"] == "present" ] )
+        self.missing_sudoers = list(admin_usernames.difference(set(self.admin_sudousers)))
+        self.extra_sudoers = list(set(self.admin_sudousers).difference(admin_usernames))
+
     def compare_keys(self, keys_actual, keys_supposed):
         try:
             keyset_actual = set([k.split(" ")[1] for k in keys_actual if len(k) > 0 and k[0] != "#"])
@@ -74,9 +94,6 @@ class UserChecker():
         except IndexError:
             self.exceptions += 1
             self.exceptionstrings.append("Error comparing ssh keys")
-
-    def check_user_keys(self, keys, admin_user):
-        return self.compare_keys(keys, self.selected_admin_users[admin_user]["ssh_keys"])
 
     def do_check(self):
         # Check user accounts
@@ -98,11 +115,11 @@ class UserChecker():
             with open(ssh_keyfile, "r") as kf:
                 keys = kf.read().strip().split("\n")
 
-            m, e = self.check_user_keys(keys, user[0])
-            ek = len(m) + len(e)
-            if ek:
-                self.errors += ek
-                self.errorstrings.append(f"{user[0]} Extra keys: {e}, missing keys: {m}")
+            missing_k, extra_k = self.compare_keys(keys, self.selected_admin_users[user[0]]["ssh_keys"])
+            error_k = len(missing_k) + len(extra_k)
+            if error_k:
+                self.errors += error_k
+                self.errorstrings.append(f"{user[0]} Extra keys: {extra_k}, missing keys: {missing_k}")
 
         # Check root keys
         root_keys = []
@@ -112,13 +129,20 @@ class UserChecker():
         with open("/root/.ssh/authorized_keys", "r") as rf:
              root_deployed_keys = rf.read().strip().split("\n")
 
-        mr, er = self.compare_keys(root_deployed_keys, root_keys)
+        missing_root_k, extra_root_k = self.compare_keys(root_deployed_keys, root_keys)
 
-        rk = len(mr) + len(er)
+        root_k_error = len(missing_root_k) + len(extra_root_k)
 
-        if rk:
-            self.errors += rk
-            self.errorstrings.append( f"Extra root ssh keys: {er}, Missing root ssh keys: {mr}")
+        if root_k_error:
+            self.errors += root_k_error
+            self.errorstrings.append(f"Extra root ssh keys: {extra_root_k}, Missing root ssh keys: {missing_root_k}")
+
+        # Check sudoers
+        self.check_sudoers()
+        sudo_mismatch = len(self.extra_sudoers) + len(self.missing_sudoers)
+        if sudo_mismatch:
+            self.errors += sudo_mismatch
+            self.errorstrings.append(f"Missing sudoers: {self.missing_sudoers}, Extra sudoers: {self.extra_sudoers}")
 
         return self.exceptions, self.exceptionstrings, self.errors, self.errorstrings
 
@@ -127,24 +151,19 @@ def main():
 
     parser.add_argument("-g", "--group", action="append", required=True, help="Admin user group to validate, can be repeated")
     parser.add_argument("-u", "--url", required=True, help="URL for the json data")
-    parser.add_argument("-c", "--check", action="store_true", help="Runn in check mode")
 
     args = parser.parse_args()
 
-    if not args.check:
-        print(f"You need to run this tool in check mode \"-c/--check\"")
-        exit(1)
-
     usercheck = UserChecker(args.url, args.group)
 
-    ex, exs, er, ers = usercheck.do_check()
+    exceptions, exception_str, errors, error_str = usercheck.do_check()
 
-    if ex:
-        print(f'Error running tool: {" ".join(exs)}')
+    if exceptions:
+        print(f'Error running tool: {" ".join(exception_str)}')
+        exit(3)
+    if errors:
+        print(" ".join(error_str))
         exit(2)
-    if er:
-        print(" ".join(ers))
-        exit(1)
     print("OK")
     exit(0)
 
