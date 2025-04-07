@@ -1,8 +1,9 @@
 import pwd
 import os
-import requests
+import sys
 import json
 import argparse
+import requests
 
 class UserChecker():
     def __init__(self, url, admingroups, rootgroups):
@@ -13,6 +14,11 @@ class UserChecker():
         self.errorstrings = []
         self.exceptions = 0
         self.exceptionstrings = []
+
+        self.missing_users = []
+        self.extra_users = []
+        self.missing_sudoers = []
+        self.extra_sudoers = []
 
         self.get_users_with_login_shell()
         self.get_admin_users()
@@ -27,11 +33,11 @@ class UserChecker():
             response = requests.get(self.url, timeout=10)  # Set a timeout for safety
             if response.ok:
                 return response.json()  # Parse JSON response
-        except requests.RequestException as e:
+        except requests.RequestException:
             pass
 
         self.exceptions += 1
-        self.exceptionstrings.append(f"Error fetching JSON")
+        self.exceptionstrings.append("Error fetching JSON")
         return None
 
 
@@ -41,7 +47,7 @@ class UserChecker():
         self.default_users = {}
         self.root_admin_users = {}
         all_users = self.fetch_json()
-        if all_users == None:
+        if all_users is None:
             return
 
         try:
@@ -63,8 +69,8 @@ class UserChecker():
                 self.all_local_users.append((user.pw_name, user.pw_dir))
 
     def check_deployed_users(self):
-        deployed_usernames = set([d[0] for d in self.deployed_users])
-        admin_usernames = set([ k for k in self.selected_admin_users.keys() if self.selected_admin_users[k]["state"] == "present" ] )
+        deployed_usernames = {d[0] for d in self.deployed_users}
+        admin_usernames = {k for k in self.selected_admin_users if self.selected_admin_users[k]["state"] == "present"}
         self.missing_users = list(admin_usernames.difference(deployed_usernames))
         self.extra_users = list(deployed_usernames.difference(admin_usernames))
 
@@ -82,20 +88,21 @@ class UserChecker():
                         self.sudousers.add(sudouser)
 
     def check_sudoers(self):
-        admin_usernames = set([ k for k in self.selected_admin_users.keys() if self.selected_admin_users[k]["state"] == "present" ] )
+        admin_usernames = {k for k in self.selected_admin_users if self.selected_admin_users[k]["state"] == "present"}
         self.missing_sudoers = list(admin_usernames.difference(set(self.admin_sudousers)))
         self.extra_sudoers = list(set(self.admin_sudousers).difference(admin_usernames))
 
     def compare_keys(self, keys_actual, keys_supposed):
         try:
-            keyset_actual = set([k.split(" ")[1] for k in keys_actual if len(k) > 0 and k[0] != "#"])
-            keyset_supposed = set([k.split(" ")[1] for k in keys_supposed if len(k) > 0 and k[0] != "#"])
+            keyset_actual = {k.split(" ")[1] for k in keys_actual if len(k) > 0 and k[0] != "#"}
+            keyset_supposed = {k.split(" ")[1] for k in keys_supposed if len(k) > 0 and k[0] != "#"}
             missing_keys = list(keyset_supposed.difference(keyset_actual))
             extra_keys = list(keyset_actual.difference(keyset_supposed))
             return missing_keys, extra_keys
         except IndexError:
             self.exceptions += 1
             self.exceptionstrings.append("Error comparing ssh keys")
+            return None, None
 
     def do_check(self):
         # Check user accounts
@@ -129,7 +136,7 @@ class UserChecker():
             root_keys.extend(self.root_admin_users[ru]["ssh_keys"])
 
         with open("/root/.ssh/authorized_keys", "r") as rf:
-             root_deployed_keys = rf.read().strip().split("\n")
+            root_deployed_keys = rf.read().strip().split("\n")
 
         missing_root_k, extra_root_k = self.compare_keys(root_deployed_keys, root_keys)
 
@@ -151,8 +158,10 @@ class UserChecker():
 def main():
     parser = argparse.ArgumentParser(description="Admin user verification script.")
 
-    parser.add_argument("-g", "--group", action="append", required=True, help="Admin user group to validate, can be repeated")
-    parser.add_argument("-r", "--rootgroup", action="append", required=True, help="Admin groups with root ssh access to validate, can be repeated")
+    parser.add_argument("-g", "--group", action="append", required=True,
+                        help="Admin user group to validate, can be repeated")
+    parser.add_argument("-r", "--rootgroup", action="append", required=True,
+                        help="Admin groups with root ssh access to validate, can be repeated")
     parser.add_argument("-u", "--url", required=True, help="URL for the json data")
 
     args = parser.parse_args()
@@ -163,12 +172,12 @@ def main():
 
     if exceptions:
         print(f'Error running tool: {" ".join(exception_str)}')
-        exit(3)
+        sys.exit(3)
     if errors:
         print(" ".join(error_str))
-        exit(2)
+        sys.exit(2)
     print("OK")
-    exit(0)
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
