@@ -5,10 +5,10 @@ import json
 import argparse
 
 class UserChecker():
-    def __init__(self, url, admingroups):
+    def __init__(self, url, admingroups, rootgroups):
         self.url = url
         self.admingroups = admingroups
-        self.rootgroup = "pouta_admins"
+        self.rootgroups = rootgroups
         self.errors = 0
         self.errorstrings = []
         self.exceptions = 0
@@ -39,6 +39,7 @@ class UserChecker():
         """ Get e.g. "pouta_admins" or "ceph_admins" """
         self.selected_admin_users = {}
         self.default_users = {}
+        self.root_admin_users = {}
         all_users = self.fetch_json()
         if all_users == None:
             return
@@ -47,7 +48,8 @@ class UserChecker():
             for group in self.admingroups:
                 self.selected_admin_users.update(all_users[group])
 
-            self.root_admin_users = all_users[self.rootgroup]
+            for group in self.rootgroups:
+                self.root_admin_users.update(all_users[group])
 
             self.default_users = all_users["default_allowed_users"]
         except KeyError:
@@ -150,11 +152,12 @@ def main():
     parser = argparse.ArgumentParser(description="Admin user verification script.")
 
     parser.add_argument("-g", "--group", action="append", required=True, help="Admin user group to validate, can be repeated")
+    parser.add_argument("-r", "--rootgroup", action="append", required=True, help="Admin groups with root ssh access to validate, can be repeated")
     parser.add_argument("-u", "--url", required=True, help="URL for the json data")
 
     args = parser.parse_args()
 
-    usercheck = UserChecker(args.url, args.group)
+    usercheck = UserChecker(args.url, args.group, args.rootgroup)
 
     exceptions, exception_str, errors, error_str = usercheck.do_check()
 
