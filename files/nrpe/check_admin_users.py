@@ -1,4 +1,5 @@
 import pwd
+import grp
 import os
 import sys
 import json
@@ -84,8 +85,14 @@ class UserChecker():
                     if len(line) > 0 and line[0] != "#":
                         if line.startswith("Defaults"):
                             continue
+                        if line.startswith("%"):
+                            #Handle the case where the group is
+                            localgroup = grp.getgrnam(line[1:].split(" ")[0])
+                            self.sudousers.update(localgroup.gr_mem)
+                            continue
                         sudouser = line.split(" ")[0]
                         self.sudousers.add(sudouser)
+
 
     def check_sudoers(self):
         admin_usernames = {k for k in self.selected_admin_users if self.selected_admin_users[k]["state"] == "present"}
@@ -102,7 +109,7 @@ class UserChecker():
         except IndexError:
             self.exceptions += 1
             self.exceptionstrings.append("Error comparing ssh keys")
-            return None, None
+            return [], []
 
     def do_check(self):
         # Check user accounts
@@ -117,7 +124,7 @@ class UserChecker():
 
         # Check admin user keys
         for user in self.deployed_users:
-            if user[0] not in self.selected_admin_users:
+            if user[0] not in self.selected_admin_users and self.selected_admin_users[user[0]]["state"] != "present":
                 continue
             ssh_keyfile = os.path.join(user[1], ".ssh", "authorized_keys")
 
@@ -133,6 +140,8 @@ class UserChecker():
         # Check root keys
         root_keys = []
         for ru in self.root_admin_users:
+            if self.root_admin_users[ru]["state"] != "present":
+                continue
             root_keys.extend(self.root_admin_users[ru]["ssh_keys"])
 
         with open("/root/.ssh/authorized_keys", "r") as rf:
