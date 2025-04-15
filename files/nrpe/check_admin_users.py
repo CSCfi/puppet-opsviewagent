@@ -77,10 +77,11 @@ class UserChecker():
         self.extra_users = list(deployed_usernames.difference(admin_usernames))
 
     def get_sudoers(self):
-        sudofiles = os.listdir("/etc/sudoers.d")
+        sudofiles = [f"/etc/sudoers.d/{f}" for f in os.listdir("/etc/sudoers.d")]
+        sudofiles.append("/etc/sudoers")
         self.sudousers = set()
         for sudofile in sudofiles:
-            with open("/etc/sudoers.d/" + sudofile, "r") as sf:
+            with open(sudofile, "r") as sf:
                 lines = [l.strip()  for l in sf.readlines()]
                 for line in lines:
                     if len(line) > 0 and line[0] != "#":
@@ -88,10 +89,10 @@ class UserChecker():
                             continue
                         if line.startswith("%"):
                             #Handle the case where the group is
-                            localgroup = grp.getgrnam(line[1:].split(" ")[0])
+                            localgroup = grp.getgrnam(line[1:].split()[0])
                             self.sudousers.update(localgroup.gr_mem)
                             continue
-                        sudouser = line.split(" ")[0]
+                        sudouser = line.split()[0]
                         self.sudousers.add(sudouser)
 
 
