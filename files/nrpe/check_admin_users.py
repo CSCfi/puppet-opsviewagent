@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import pwd
 import grp
 import os
