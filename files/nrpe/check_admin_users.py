@@ -3,7 +3,6 @@ import pwd
 import grp
 import os
 import sys
-import json
 import argparse
 import requests
 
@@ -82,7 +81,7 @@ class UserChecker():
         self.sudousers = set()
         for sudofile in sudofiles:
             with open(sudofile, "r") as sf:
-                lines = [l.strip()  for l in sf.readlines()]
+                lines = [l.strip() for l in sf.readlines()]
                 for line in lines:
                     if len(line) > 0 and line[0] != "#":
                         if line.startswith("Defaults"):
