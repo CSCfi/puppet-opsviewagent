@@ -125,7 +125,7 @@ class UserChecker():
 
         # Check admin user keys
         for user in self.deployed_users:
-            if user[0] not in self.selected_admin_users and self.selected_admin_users[user[0]]["state"] != "present":
+            if user[0] not in self.selected_admin_users or self.selected_admin_users[user[0]]["state"] != "present":
                 continue
             ssh_keyfile = os.path.join(user[1], ".ssh", "authorized_keys")
 
