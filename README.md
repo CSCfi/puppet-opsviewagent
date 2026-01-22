@@ -1,5 +1,7 @@
 [![Build Status](https://travis-ci.org/CSCfi/puppet-opsviewagent.svg?branch=master)](https://travis-ci.org/CSCfi/puppet-opsviewagent)
 
+ciao!
+
 opsviewagent
 ============
 
