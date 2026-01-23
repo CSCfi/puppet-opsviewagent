@@ -3,7 +3,6 @@ sudo: false
 language: ruby
 cache: bundler
 rvm:
-  # Ruby version in CentOS7
   - 2.6.10
 env:
   - PUPPET_VERSION="4.10.9"
