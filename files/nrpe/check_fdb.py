@@ -11,6 +11,8 @@ If there are discrepancies, the script exits with return code 1.
 """
 
 import argparse
+import os
+import stat
 import subprocess
 import sys
 
@@ -41,6 +43,25 @@ FDB_COMMAND = """bridge fdb show | grep dst | grep vxlan | awk '{ print $1" "sub
 EXCLUDED_MACS = [
     "00:00:00:00:00:00",
 ]
+
+COMMANDS_FILE_PATH = "/tmp/fix_fdb.sh"
+
+def write_commands_to_file(commands):
+    """
+    The function writes the content of the script at COMMANDS_FILE_PATH.
+    The content is determined by the list of commands given in input.
+    If the list of commands is empty, the function produces an empty script.
+    """
+    commands.appendleft("#!/bin/bash\n")
+    with open(COMMANDS_FILE_PATH, "w", encoding="utf-8") as commands_file:
+        commands_file.writelines(commands)
+    # make sure file has correct permissions
+    os.chmod(
+        COMMANDS_FILE_PATH,
+        stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR |  # owner (7)
+        stat.S_IRGRP | stat.S_IXGRP |                 # group (5)
+        stat.S_IROTH                                  # others (4)
+    )
 
 def get_data_from_db(db_data, database, user, password):
     """
@@ -121,6 +142,7 @@ def main():
     parser.add_argument('-u','--user', help='User of the database', required=True)
     parser.add_argument('-p','--password', help='Password of the database user', required=True)
     args = vars(parser.parse_args())
+    commands = []
     exit_code = NAGIOS_STATE_OK
     db_data = {}
     exit_code = get_data_from_db(db_data, args['database'], args['user'], args['password'])
@@ -139,9 +161,14 @@ def main():
                           "hypervisor at address " + db_data[key]["ip_address"] + " " +
                           "but it is instead pointing to " +
                           "hypervisor at address " + fdb_data[key]["ip_address"])
+                    commands.append("bridge fdb delete " + fdb_data[key]['mac_address'] +
+                                    " dev vxlan-" + fdb_data[key]["vxlan_id"] +
+                                    " dst " + fdb_data[key]['ip_address'] + "\n")
                     exit_code = NAGIOS_STATE_CRITICAL
     if exit_code == NAGIOS_STATE_OK:
         print("all fdb entries match the information in the database")
+    # write any fixing command to a bash script
+    write_commands_to_file(commands)
     sys.exit(exit_code)
 
 if __name__ == '__main__':
