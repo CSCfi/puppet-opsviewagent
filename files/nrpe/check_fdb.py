@@ -52,7 +52,7 @@ def write_commands_to_file(commands):
     The content is determined by the list of commands given in input.
     If the list of commands is empty, the function produces an empty script.
     """
-    commands.appendleft("#!/bin/bash\n")
+    commands.insert(0, "#!/bin/bash\n")
     with open(COMMANDS_FILE_PATH, "w", encoding="utf-8") as commands_file:
         commands_file.writelines(commands)
     # make sure file has correct permissions
