@@ -44,7 +44,7 @@ EXCLUDED_MACS = [
     "00:00:00:00:00:00",
 ]
 
-COMMANDS_FILE_PATH = "/tmp/fix_fdb.sh"
+COMMANDS_FILE_PATH = "/run/nrpe/fix_fdb.sh"
 
 def write_commands_to_file(commands):
     """
